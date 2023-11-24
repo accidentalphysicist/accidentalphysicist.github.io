@@ -69,6 +69,26 @@
             margin: 0 15px;
             font-size: 1.2em;
         }
+
+         #powered-by {
+            position: fixed;
+            bottom: 20px;
+            width: 100%;
+            text-align: center;
+        }
+
+        #powered-by-text {
+            color: rgba(255, 255, 255, 0.4);
+            font-size: 0.8em;
+            display: inline-block;
+            margin-right: 5px;
+        }
+
+        #chatgpt-logo {
+            width: 20px;
+            height: 20px;
+            vertical-align: middle;
+        }
     </style>
 </head>
 
@@ -87,6 +107,10 @@
         <a href="#">Links</a>
         <a href="#">Log In</a>
     </nav>
+    <div id="powered-by">
+        <span id="powered-by-text">Powered by ChatGPT</span>
+        <img id="chatgpt-logo" src="chatgpt-logo.png" alt="ChatGPT Logo">
+    </div>
 </body>
 
 </html>
