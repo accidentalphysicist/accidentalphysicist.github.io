@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Character and Word Counter</title>
+    <title>Resources</title>
     <style>
         body {
             background-color: #1E1E1E;
@@ -29,25 +29,35 @@
 
         #counters {
             display: flex;
-            justify-content: flex-end;
+            justify-content: space-between;
             margin-top: 10px;
         }
 
         #wordCount, #charCount {
-            margin-left: 20px;
+            color: yellow; /* Yellow text color */
+        }
+
+        .label {
+            color: lime; /* Lime text color */
         }
     </style>
 </head>
 <body>
 
     <div id="container">
-        <h1>Character and Word Counter</h1>
+        <h1>Counter</h1>
         
         <textarea id="inputText" oninput="countCharactersAndWords()"></textarea>
         
         <div id="counters">
-            <p>Word Count: <span id="wordCount">0</span></p>
-            <p>Character Count: <span id="charCount">0</span></p>
+            <div>
+                <p class="label">Word Count:</p>
+                <span id="wordCount">0</span>
+            </div>
+            <div>
+                <p class="label">Character Count:</p>
+                <span id="charCount">0</span>
+            </div>
         </div>
     </div>
 
