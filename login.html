@@ -5,11 +5,11 @@
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Login Page</title>
   <style>
-    body {
+     body {
       margin: 0;
       padding: 0;
       font-family: Arial, sans-serif;
-      background: url('astronomy-background.gif') no-repeat center center fixed;
+      background: url('https://media.tenor.com/TLsSaQMZYNsAAAAd/stars-space.gif') no-repeat center center fixed;
       background-size: cover;
       height: 100vh;
       display: flex;
@@ -55,7 +55,7 @@
 <body>
   <div class="login-container">
     <h2>Login</h2>
-    <form id="loginForm" action="your_destination_page.html" method="post">
+    <form id="loginForm" onsubmit="return validateForm()" action="your_destination_page.html" method="post">
       <div class="input-group">
         <label for="username">Username:</label>
         <input type="text" id="username" name="username" required>
@@ -67,5 +67,21 @@
       <button type="submit" class="login-button">Log In</button>
     </form>
   </div>
+
+  <script>
+    function validateForm() {
+      // Get values from the form
+      var username = document.getElementById("username").value;
+      var password = document.getElementById("password").value;
+
+      // Replace this with your actual authentication logic
+      if (username === "admin" && password === "@@dmin") {
+        return true; // Allow form submission
+      } else {
+        alert("Invalid username or password");
+        return false; // Prevent form submission
+      }
+    }
+  </script>
 </body>
 </html>
