@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Character and Word Counter</title>
+    <style>
+        body {
+            background-color: #1E1E1E;
+            color: #8A2BE2; /* Purple text color */
+            font-family: 'Courier New', monospace;
+        }
+
+        #container {
+            max-width: 600px;
+            margin: 50px auto;
+        }
+
+        textarea {
+            width: 100%;
+            height: 200px;
+            resize: none;
+            background-color: #2E2E2E; /* Dark background color */
+            color: #8A2BE2; /* Purple text color */
+            border: none;
+            padding: 10px;
+            box-sizing: border-box;
+        }
+
+        #counters {
+            display: flex;
+            justify-content: flex-end;
+            margin-top: 10px;
+        }
+
+        #wordCount, #charCount {
+            margin-left: 20px;
+        }
+    </style>
+</head>
+<body>
+
+    <div id="container">
+        <h1>Character and Word Counter</h1>
+        
+        <textarea id="inputText" oninput="countCharactersAndWords()"></textarea>
+        
+        <div id="counters">
+            <p>Word Count: <span id="wordCount">0</span></p>
+            <p>Character Count: <span id="charCount">0</span></p>
+        </div>
+    </div>
+
+    <script>
+        function countCharactersAndWords() {
+            var text = document.getElementById("inputText").value;
+            
+            // Count characters
+            var charCount = text.length;
+            document.getElementById("charCount").innerText = charCount;
+
+            // Count words
+            var wordCount = text.split(/\s+/).filter(function(word) {
+                return word.length > 0;
+            }).length;
+            document.getElementById("wordCount").innerText = wordCount;
+        }
+    </script>
+
+</body>
+</html>
