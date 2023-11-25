@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Resources</title>
+    <title>Character and Word Counter</title>
     <style>
         body {
             background-color: #1E1E1E;
@@ -16,6 +16,17 @@
             margin: 50px auto;
         }
 
+        h1 {
+            display: flex;
+            align-items: center;
+        }
+
+        h1 img {
+            margin-right: 10px;
+            width: 40px; /* Adjust the width as needed */
+            height: 40px; /* Adjust the height as needed */
+        }
+
         textarea {
             width: 100%;
             height: 200px;
@@ -25,6 +36,10 @@
             border: none;
             padding: 10px;
             box-sizing: border-box;
+        }
+
+        #options {
+            margin-top: 10px;
         }
 
         #counters {
@@ -45,9 +60,23 @@
 <body>
 
     <div id="container">
-        <h1><img src="https://i.pinimg.com/originals/78/f0/29/78f029a36197e77237b9f9c59837627a.gif" alt="GIF">
-            Counter</h1>
+        <h1>
+            <img src="https://i.pinimg.com/originals/78/f0/29/78f029a36197e77237b9f9c59837627a.gif" width="50%" height="50%" alt="GIF">
+            Character and Word Counter
+        </h1>
         
+        <div id="options">
+            <label>
+                <input type="checkbox" id="avoidSpace" onchange="countCharactersAndWords()"> Avoid Space
+            </label>
+            <label>
+                <input type="checkbox" id="avoidCommas" onchange="countCharactersAndWords()"> Avoid Commas
+            </label>
+            <label>
+                <input type="checkbox" id="avoidPunctuation" onchange="countCharactersAndWords()"> Avoid Punctuation
+            </label>
+        </div>
+
         <textarea id="inputText" oninput="countCharactersAndWords()"></textarea>
         
         <div id="counters">
@@ -65,7 +94,23 @@
     <script>
         function countCharactersAndWords() {
             var text = document.getElementById("inputText").value;
-            
+
+            // Check options
+            var avoidSpace = document.getElementById("avoidSpace").checked;
+            var avoidCommas = document.getElementById("avoidCommas").checked;
+            var avoidPunctuation = document.getElementById("avoidPunctuation").checked;
+
+            // Apply options
+            if (avoidSpace) {
+                text = text.replace(/ /g, '');
+            }
+            if (avoidCommas) {
+                text = text.replace(/,/g, '');
+            }
+            if (avoidPunctuation) {
+                text = text.replace(/[^\w\s]/g, '');
+            }
+
             // Count characters
             var charCount = text.length;
             document.getElementById("charCount").innerText = charCount;
