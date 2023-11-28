@@ -46,7 +46,7 @@
   </style>
 </head>
 <body>
-<marquee> AU </marquee>
+
 <div id="ribbon">Latest Images:</div>
 
 <div id="gallery"></div>
@@ -55,44 +55,46 @@
   const galleryContainer = document.getElementById('gallery');
   const ribbon = document.getElementById('ribbon');
 
-  const githubPagesURL = 'https://accidentalphysicist.github.io'; // Replace with your GitHub Pages URL
   const folderName = 'images';
 
-  fetch(`${githubPagesURL}/${folderName}/`)
-    .then(response => response.json())
-    .then(data => {
-      const images = data.map(file => `${githubPagesURL}/${folderName}/${file.name}`);
+  // Hardcoded array of image file names
+  const images = [
+    '01.jpeg',
+    '02.jpeg',
+    '03.jpeg',
+    '04.jpeg',
+    '05.jpeg'
+    // Add more images as needed
+  ];
 
-      let currentIndex = 0;
+  let currentIndex = 0;
 
-      function showImage(index) {
-        const img = document.createElement('img');
-        img.src = images[index];
-        img.alt = `Image ${index + 1}`;
-        img.classList.add('gallery-item');
-        galleryContainer.prepend(img);
-      }
+  function showImage(index) {
+    const img = document.createElement('img');
+    img.src = `${folderName}/${images[index]}`;
+    img.alt = `Image ${index + 1}`;
+    img.classList.add('gallery-item');
+    galleryContainer.prepend(img);
+  }
 
-      function updateRibbon() {
-        ribbon.textContent = `Latest Images: ${images[currentIndex]}`;
-      }
+  function updateRibbon() {
+    ribbon.textContent = `Latest Images: ${folderName}/${images[currentIndex]}`;
+  }
 
-      function changeImage() {
-        currentIndex = (currentIndex + 1) % images.length;
-        showImage(currentIndex);
-        updateRibbon();
-      }
+  function changeImage() {
+    currentIndex = (currentIndex + 1) % images.length;
+    showImage(currentIndex);
+    updateRibbon();
+  }
 
-      function startSlideshow() {
-        setInterval(changeImage, 10000); // Change image every 10 seconds
-      }
+  function startSlideshow() {
+    setInterval(changeImage, 10000); // Change image every 10 seconds
+  }
 
-      // Initial setup
-      showImage(currentIndex);
-      updateRibbon();
-      startSlideshow();
-    })
-    .catch(error => console.error('Error fetching images:', error));
+  // Initial setup
+  showImage(currentIndex);
+  updateRibbon();
+  startSlideshow();
 </script>
 
 </body>
