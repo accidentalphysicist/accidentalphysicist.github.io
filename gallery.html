@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Modern Photo Gallery</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      background-color: #f4f4f4;
+    }
+
+    #gallery {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    .gallery-item {
+      margin: 10px;
+      overflow: hidden;
+      box-shadow: 0 0 10px rgba(0, 0, 0, 0.1);
+      border-radius: 8px;
+      transition: transform 0.3s ease-in-out;
+    }
+
+    .gallery-item img {
+      max-width: 100%;
+      height: auto;
+      display: block;
+    }
+
+    #ribbon {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100%;
+      background-color: #333;
+      color: #fff;
+      padding: 10px;
+      text-align: center;
+      font-size: 18px;
+    }
+  </style>
+</head>
+<body>
+
+<div id="ribbon">Latest Images:</div>
+
+<div id="gallery"></div>
+
+<script>
+  const galleryContainer = document.getElementById('gallery');
+  const ribbon = document.getElementById('ribbon');
+
+  const githubPagesURL = 'https://accidentalphysicist.github.io/repository'; // Replace with your GitHub Pages URL
+  const folderName = 'images';
+
+  fetch(`${githubPagesURL}/${folderName}/`)
+    .then(response => response.json())
+    .then(data => {
+      const images = data.map(file => `${githubPagesURL}/${folderName}/${file.name}`);
+
+      let currentIndex = 0;
+
+      function showImage(index) {
+        const img = document.createElement('img');
+        img.src = images[index];
+        img.alt = `Image ${index + 1}`;
+        img.classList.add('gallery-item');
+        galleryContainer.prepend(img);
+      }
+
+      function updateRibbon() {
+        ribbon.textContent = `Latest Images: ${images[currentIndex]}`;
+      }
+
+      function changeImage() {
+        currentIndex = (currentIndex + 1) % images.length;
+        showImage(currentIndex);
+        updateRibbon();
+      }
+
+      function startSlideshow() {
+        setInterval(changeImage, 10000); // Change image every 10 seconds
+      }
+
+      // Initial setup
+      showImage(currentIndex);
+      updateRibbon();
+      startSlideshow();
+    })
+    .catch(error => console.error('Error fetching images:', error));
+</script>
+
+</body>
+</html>
