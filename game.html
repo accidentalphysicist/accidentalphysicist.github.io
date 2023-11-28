@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dinosaur Game</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+        }
+
+        #game-container {
+            position: relative;
+            width: 600px;
+            height: 200px;
+            background-color: #f7f7f7;
+            margin: 20px auto;
+            border: 1px solid #ccc;
+        }
+
+        #dinosaur {
+            position: absolute;
+            bottom: 0;
+            left: 50px;
+            width: 50px;
+            height: 50px;
+            background-color: #666;
+        }
+    </style>
+</head>
+<body>
+
+<div id="game-container">
+    <div id="dinosaur"></div>
+</div>
+
+<script>
+    document.addEventListener("keydown", jump);
+
+    let isJumping = false;
+    let gravity = 0.9;
+    let dinoPosition = 0;
+    let gameInterval;
+
+    function jump(event) {
+        if (event.keyCode === 32 && !isJumping) {
+            isJumping = true;
+            jumpUp();
+        }
+    }
+
+    function jumpUp() {
+        let jumpCount = 0;
+        gameInterval = setInterval(function () {
+            if (jumpCount === 15) {
+                clearInterval(gameInterval);
+                isJumping = false;
+                jumpCount = 0;
+            }
+
+            dinoPosition += 5;
+            dinoPosition *= gravity;
+            document.getElementById("dinosaur").style.bottom = dinoPosition + "px";
+            jumpCount++;
+        }, 20);
+    }
+</script>
+
+</body>
+</html>
