@@ -142,3 +142,10 @@ input {
 .param-row input {
   flex: 1;
 }
+
+
+.sim-btn {
+  background-color: #4caf50;
+  color: white;
+  margin-right: 8px;
+}
