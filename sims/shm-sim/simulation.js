@@ -1,81 +1,127 @@
-const canvas = document.getElementById("simCanvas");
-const ctx = canvas.getContext("2d");
+/* ===========================
+   CANVAS: SPRING SIMULATION
+   =========================== */
 
-let startTime = null;
+const simCanvas = document.getElementById("simCanvas");
+const simCtx = simCanvas.getContext("2d");
+
+/* ===========================
+   GRAPH
+   =========================== */
+
+const graphCtx = document.getElementById("graphCanvas").getContext("2d");
+let chart;
+
+/* ===========================
+   STATE VARIABLES
+   =========================== */
+
 let animationId = null;
+let startTime = null;
+let pausedTime = 0;
+let isPaused = false;
 
 let A, k, m, b;
 let omega, omega_d;
-let dampingEnabled;
+let isDamped = false;
 
 let timeData = [];
 let displacementData = [];
-let chart;
 
-// ------------------ DRAWING ------------------
-function drawSystem(x) {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
+/* ===========================
+   DRAW SPRING SYSTEM
+   =========================== */
+
+function drawSpring(x) {
+  simCtx.clearRect(0, 0, simCanvas.width, simCanvas.height);
 
   // Wall
-  ctx.fillRect(10, 80, 10, 40);
+  simCtx.fillStyle = "#ffffff";
+  simCtx.fillRect(10, 80, 10, 60);
 
   // Spring
-  ctx.beginPath();
-  ctx.moveTo(20, 100);
-  ctx.lineTo(200 + x, 100);
-  ctx.stroke();
+  simCtx.beginPath();
+  simCtx.moveTo(20, 110);
+  simCtx.lineTo(200 + x, 110);
+  simCtx.strokeStyle = "#5bc0eb";
+  simCtx.lineWidth = 2;
+  simCtx.stroke();
 
   // Mass
-  ctx.fillRect(200 + x, 80, 40, 40);
+  simCtx.fillStyle = "#4caf50";
+  simCtx.fillRect(200 + x, 85, 40, 50);
 }
 
-// ------------------ ANIMATION LOOP ------------------
+/* ===========================
+   ANIMATION LOOP
+   =========================== */
+
 function animate(timestamp) {
   if (!startTime) startTime = timestamp;
-  let t = (timestamp - startTime) / 1000;
+  const t = (timestamp - startTime - pausedTime) / 1000;
 
   let x;
-  if (dampingEnabled) {
+  if (isDamped) {
     x = A * Math.exp(-b * t / (2 * m)) * Math.cos(omega_d * t);
   } else {
     x = A * Math.cos(omega * t);
   }
 
-  drawSystem(x);
+  drawSpring(x);
 
-  timeData.push(t.toFixed(2));
-  displacementData.push(x.toFixed(2));
-
-  if (timeData.length > 150) {
-    timeData.shift();
-    displacementData.shift();
-  }
+  timeData.push(t);
+  displacementData.push(x);
 
   updateGraph();
 
   animationId = requestAnimationFrame(animate);
 }
 
-// ------------------ GRAPH ------------------
-function initGraph() {
-  const ctxG = document.getElementById("graphCanvas").getContext("2d");
+/* ===========================
+   GRAPH INITIALIZATION
+   =========================== */
 
-  chart = new Chart(ctxG, {
+function initGraph() {
+  const yMax = A + A / 5;
+  const yMin = -A - A / 5;
+
+  chart = new Chart(graphCtx, {
     type: "line",
     data: {
       labels: timeData,
       datasets: [{
-        label: "Displacement",
+        label: "Displacement (x)",
         data: displacementData,
-        borderColor: "blue",
-        fill: false
+        borderColor: "#e63946",
+        borderWidth: 2,
+        pointRadius: 0
       }]
     },
     options: {
       animation: false,
+      responsive: true,
       scales: {
-        x: { title: { display: true, text: "Time (s)" } },
-        y: { title: { display: true, text: "x" } }
+        x: {
+          title: { display: true, text: "Time (s)" }
+        },
+        y: {
+          title: { display: true, text: "Displacement" },
+          min: yMin,
+          max: yMax
+        }
+      },
+      plugins: {
+        zoom: {
+          pan: {
+            enabled: true,
+            mode: "x"
+          },
+          zoom: {
+            wheel: { enabled: true },
+            pinch: { enabled: true },
+            mode: "x"
+          }
+        }
       }
     }
   });
@@ -87,7 +133,10 @@ function updateGraph() {
   chart.update();
 }
 
-// ------------------ CONTROLS ------------------
+/* ===========================
+   CONTROLS
+   =========================== */
+
 function startSimulation() {
   stopSimulation();
 
@@ -95,17 +144,22 @@ function startSimulation() {
   k = parseFloat(document.getElementById("k").value);
   m = parseFloat(document.getElementById("m").value);
   b = parseFloat(document.getElementById("b").value);
-  dampingEnabled = document.getElementById("dampingToggle").checked;
+  isDamped = document.getElementById("dampingToggle").checked;
 
   omega = Math.sqrt(k / m);
 
-  if (dampingEnabled) {
-    omega_d = Math.sqrt(Math.max(0, k / m - (b * b) / (4 * m * m)));
+  if (isDamped) {
+    omega_d = Math.sqrt(
+      Math.max(0, k / m - (b * b) / (4 * m * m))
+    );
   }
 
-  startTime = null;
   timeData = [];
   displacementData = [];
+
+  startTime = null;
+  pausedTime = 0;
+  isPaused = false;
 
   if (chart) chart.destroy();
   initGraph();
@@ -113,6 +167,47 @@ function startSimulation() {
   animationId = requestAnimationFrame(animate);
 }
 
+function pauseSimulation() {
+  if (!animationId) return;
+
+  if (!isPaused) {
+    cancelAnimationFrame(animationId);
+    pausedTime += performance.now() - startTime - pausedTime;
+    isPaused = true;
+  } else {
+    startTime = performance.now();
+    animationId = requestAnimationFrame(animate);
+    isPaused = false;
+  }
+}
+
 function stopSimulation() {
   if (animationId) cancelAnimationFrame(animationId);
+  animationId = null;
+  isPaused = false;
+  startTime = null;
+}
+
+/* ===========================
+   EXPORT FUNCTIONS
+   =========================== */
+
+function exportGraphPNG() {
+  const link = document.createElement("a");
+  link.href = graphCtx.canvas.toDataURL("image/png");
+  link.download = "shm_graph.png";
+  link.click();
+}
+
+function exportCSV() {
+  let csv = "Time,Displacement\n";
+  for (let i = 0; i < timeData.length; i++) {
+    csv += `${timeData[i]},${displacementData[i]}\n`;
+  }
+
+  const blob = new Blob([csv], { type: "text/csv" });
+  const link = document.createElement("a");
+  link.href = URL.createObjectURL(blob);
+  link.download = "shm_data.csv";
+  link.click();
 }
