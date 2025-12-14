@@ -3,48 +3,103 @@
 <head>
   <meta charset="UTF-8">
   <title>Spring–Mass Simulation</title>
-  <link rel="stylesheet" href="style.css">
+
+  <!-- MASTER SIMULATION THEME -->
+  <link rel="stylesheet" href="../assets/sim-theme.css">
+
+  <!-- LOCAL SIM OVERRIDES (optional) -->
+  <link rel="stylesheet" href="sim.css">
+
+  <!-- Chart.js -->
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Chart.js Zoom Plugin -->
+  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
 </head>
 
 <body>
-  <h2>Spring–Mass System Simulation</h2>
 
+  <!-- ===================== -->
+  <!-- SIMULATION TITLE -->
+  <!-- ===================== -->
+  <h1 class="text-center">Spring–Mass System (SHM)</h1>
+
+  <!-- ===================== -->
+  <!-- TOP: TWO-COLUMN LAYOUT -->
+  <!-- ===================== -->
   <div class="container">
-    <!-- LEFT PANEL -->
+
+    <!-- -------- LEFT: PARAMETERS -------- -->
     <div class="left">
-      <h3>Controls</h3>
 
-      <label>Amplitude (px)</label>
-      <input id="A" type="number" value="60">
+      <section class="sim-section outlined">
+        <h2>Parameters</h2>
 
-      <label>Spring Constant k (N/m)</label>
-      <input id="k" type="number" value="10">
+        <div class="param-row">
+          <label for="A">Amplitude</label>
+          <input id="A" type="number" value="60">
+        </div>
 
-      <label>Mass m (kg)</label>
-      <input id="m" type="number" value="1">
+        <div class="param-row">
+          <label for="k">Spring Constant (k)</label>
+          <input id="k" type="number" value="10">
+        </div>
 
-      <label>
-        <input type="checkbox" id="dampingToggle">
-        Enable Damping
-      </label>
+        <div class="param-row">
+          <label for="m">Mass (m)</label>
+          <input id="m" type="number" value="1">
+        </div>
 
-      <label>Damping constant b (kg/s)</label>
-      <input id="b" type="number" value="0.5">
+        <div class="param-row">
+          <label for="dampingToggle">Is damped?</label>
+          <input id="dampingToggle" type="checkbox">
+        </div>
 
-      <button onclick="startSimulation()">Start</button>
-      <button onclick="stopSimulation()">Stop</button>
+        <div class="param-row">
+          <label for="b">Damping Constant (b)</label>
+          <input id="b" type="number" value="0.5">
+        </div>
 
-      <canvas id="simCanvas" width="420" height="200"></canvas>
+      </section>
+
     </div>
 
-    <!-- RIGHT PANEL -->
+    <!-- -------- RIGHT: SIMULATION -------- -->
     <div class="right">
-      <h3>Displacement vs Time</h3>
-      <canvas id="graphCanvas"></canvas>
+
+      <section class="sim-section">
+        <h2>Spring Simulation</h2>
+
+        <div class="button-row">
+          <button class="sim-btn" onclick="startSimulation()">Start</button>
+          <button class="sim-btn" onclick="pauseSimulation()">Pause</button>
+          <button class="sim-btn" onclick="stopSimulation()">Stop</button>
+        </div>
+
+        <canvas id="simCanvas" width="420" height="220"></canvas>
+      </section>
+
     </div>
   </div>
 
+  <!-- ===================== -->
+  <!-- GRAPH SECTION (CENTERED) -->
+  <!-- ===================== -->
+  <section class="sim-section mt-20">
+    <h2 class="text-center">Displacement vs Time</h2>
+
+    <div class="graph-toolbar">
+      <button onclick="exportGraphPNG()">Export PNG</button>
+      <button onclick="exportCSV()">Export CSV</button>
+    </div>
+
+    <canvas id="graphCanvas"></canvas>
+  </section>
+
+  <!-- ===================== -->
+  <!-- SIMULATION LOGIC -->
+  <!-- ===================== -->
   <script src="simulation.js"></script>
+
 </body>
 </html>
