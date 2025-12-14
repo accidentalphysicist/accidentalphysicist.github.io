@@ -126,3 +126,19 @@ input {
 
 .text-center { text-align: center; }
 .mt-20 { margin-top: 20px; }
+
+
+.param-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.param-row label {
+  flex: 1;
+}
+
+.param-row input {
+  flex: 1;
+}
