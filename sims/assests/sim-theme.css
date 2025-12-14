@@ -1,0 +1,128 @@
+/* ===============================
+   ROOT THEME VARIABLES
+   =============================== */
+
+:root {
+  --bg-main: #0b132b;        /* dark blue / indigo */
+  --bg-panel: #1c2541;       /* panel background */
+  --text-main: #ffffff;
+
+  --h1-color: #ffffff;
+  --h2-color: #e63946;       /* red */
+  --h3-color: #7CFC00;       /* lime green */
+
+  --outline-color: #5bc0eb;
+}
+
+/* ===============================
+   BASE PAGE STYLE
+   =============================== */
+
+body {
+  margin: 0;
+  padding: 20px;
+  background-color: var(--bg-main);
+  color: var(--text-main);
+  font-family: Arial, sans-serif;
+}
+
+/* ===============================
+   HEADINGS
+   =============================== */
+
+/* H1 — Typewriter */
+h1 {
+  font-family: "Courier New", Courier, monospace;
+  color: var(--h1-color);
+  font-size: 2.2rem;
+}
+
+/* H2 — Rounded / Helvetica style */
+h2 {
+  font-family: Helvetica, Arial, sans-serif;
+  color: var(--h2-color);
+  font-size: 1.6rem;
+}
+
+/* H3 — Calibri-like */
+h3 {
+  font-family: Calibri, "Segoe UI", sans-serif;
+  color: var(--h3-color);
+  font-size: 1.3rem;
+}
+
+/* H4–H6 — Default white */
+h4, h5, h6 {
+  font-family: Arial, sans-serif;
+  color: var(--text-main);
+}
+
+/* ===============================
+   SECTION SYSTEM
+   =============================== */
+
+/*
+   Usage:
+   <section class="sim-section outlined">
+     <h2>Parameters</h2>
+     ...
+   </section>
+*/
+
+.sim-section {
+  margin: 30px 0;
+  padding: 15px;
+  background-color: var(--bg-panel);
+  border-radius: 8px;
+}
+
+/* ---- OUTLINED SECTION WITH BROKEN HEADING ---- */
+
+.sim-section.outlined {
+  position: relative;
+  border: 2px solid var(--outline-color);
+  padding: 20px;
+  padding-top: 30px;
+}
+
+/* Heading overlaps the border */
+.sim-section.outlined > h2,
+.sim-section.outlined > h3 {
+  position: absolute;
+  top: -0.8em;
+  left: 20px;
+  background-color: var(--bg-main);
+  padding: 4px 8px;  /* 4pt spacing you requested */
+}
+
+/* ===============================
+   COMMON UI ELEMENTS
+   =============================== */
+
+button {
+  background-color: #3a86ff;
+  color: white;
+  border: none;
+  padding: 8px 14px;
+  border-radius: 6px;
+  cursor: pointer;
+}
+
+button:hover {
+  background-color: #5aa9ff;
+}
+
+input {
+  background-color: #0b132b;
+  color: white;
+  border: 1px solid #5bc0eb;
+  border-radius: 4px;
+  padding: 5px;
+}
+
+/* ===============================
+   UTILITY CLASSES
+   =============================== */
+
+.text-center { text-align: center; }
+.mt-20 { margin-top: 20px; }
