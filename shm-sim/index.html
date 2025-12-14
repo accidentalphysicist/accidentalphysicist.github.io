@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Spring–Mass Simulation</title>
+  <link rel="stylesheet" href="style.css">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+  <h2>Spring–Mass System Simulation</h2>
+
+  <div class="container">
+    <!-- LEFT PANEL -->
+    <div class="left">
+      <h3>Controls</h3>
+
+      <label>Amplitude (px)</label>
+      <input id="A" type="number" value="60">
+
+      <label>Spring Constant k (N/m)</label>
+      <input id="k" type="number" value="10">
+
+      <label>Mass m (kg)</label>
+      <input id="m" type="number" value="1">
+
+      <label>
+        <input type="checkbox" id="dampingToggle">
+        Enable Damping
+      </label>
+
+      <label>Damping constant b (kg/s)</label>
+      <input id="b" type="number" value="0.5">
+
+      <button onclick="startSimulation()">Start</button>
+      <button onclick="stopSimulation()">Stop</button>
+
+      <canvas id="simCanvas" width="420" height="200"></canvas>
+    </div>
+
+    <!-- RIGHT PANEL -->
+    <div class="right">
+      <h3>Displacement vs Time</h3>
+      <canvas id="graphCanvas"></canvas>
+    </div>
+  </div>
+
+  <script src="simulation.js"></script>
+</body>
+</html>
