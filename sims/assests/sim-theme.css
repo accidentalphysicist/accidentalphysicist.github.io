@@ -94,6 +94,23 @@ h4, h5, h6 {
   background-color: var(--bg-main);
   padding: 4px 8px;  /* 4pt spacing you requested */
 }
+.container {
+  display: flex;
+  gap: 20px;
+  align-items: flex-start;
+}
+
+/* Left: Parameters */
+.left {
+  flex: 1;
+  min-width: 320px;
+}
+
+/* Right: Simulation */
+.right {
+  flex: 1;
+  min-width: 320px;
+}
 
 /* ===============================
    COMMON UI ELEMENTS
