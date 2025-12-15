@@ -219,4 +219,15 @@ function stopSimulation() {
   isRunning = false;
   isPaused = false;
   startTime = null;
+  drawStaticSystem();
 }
+
+
+function drawStaticSystem() {
+  const A_input = parseFloat(document.getElementById("A").value) || 60;
+  A = A_input;
+  drawSpring(0);   // x = 0 → mean position
+}
+window.addEventListener("load", () => {
+  drawStaticSystem();
+});
