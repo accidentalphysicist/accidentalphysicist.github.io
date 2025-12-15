@@ -149,3 +149,21 @@ input {
   color: white;
   margin-right: 8px;
 }
+
+.tag-row {
+  display: flex;
+  gap: 10px;
+  margin-bottom: 15px;
+}
+
+.tag {
+  padding: 4px 10px;
+  border-radius: 12px;
+  font-size: 0.85rem;
+  color: white;
+}
+
+.tag-physics { background: #3a86ff; }
+.tag-model   { background: #ff006e; }
+.tag-grade   { background: #06d6a0; }
+
