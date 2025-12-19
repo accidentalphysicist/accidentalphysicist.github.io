@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Pro Teaching Canvas</title>
+<title>Teaching Canvas - Object Oriented</title>
 <style>
   body { margin: 0; background: #1e1e1e; font-family: sans-serif; color: white; overflow: hidden; }
   #toolbar {
@@ -12,10 +12,9 @@
   }
   button, input, select { padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px; background: #444; color: white; font-weight: bold; }
   button.active { background: #007bff; outline: 2px solid yellow; }
-  #canvas-container { margin-top: 60px; height: calc(100vh - 60px); overflow: auto; background: #333; }
+  #canvas-container { margin-top: 60px; height: calc(100vh - 60px); overflow: auto; background: #333; position: relative; }
   canvas { background: white; display: block; margin: 20px auto; cursor: crosshair; touch-action: none; }
   #textInput { position: absolute; display: none; background: white; border: 1px solid #007bff; color: black; outline: none; z-index: 1000; padding: 2px; }
-  
   .group { display: flex; align-items: center; gap: 5px; border-right: 1px solid #555; padding-right: 10px; }
 </style>
 </head>
@@ -26,26 +25,19 @@
     <button id="penBtn" class="active">Pen</button>
     <button id="eraserBtn">Eraser</button>
     <button id="textBtn">Text</button>
-    <button id="selectBtn">Select</button>
   </div>
-
   <div class="group">
-    <label>Shape:</label>
     <select id="shapeSelect">
-      <option value="none">None (Drawing)</option>
+      <option value="none">Shapes...</option>
       <option value="line">Line</option>
       <option value="arrow">Arrow</option>
-      <option value="doubleArrow">Double Arrow</option>
       <option value="rect">Rectangle</option>
       <option value="circle">Circle</option>
-      <option value="semicircle">Semicircle</option>
       <option value="star">Star</option>
     </select>
   </div>
-
   <input type="color" id="colorPicker" value="#000000">
-  <input type="range" id="sizePicker" min="1" max="50" value="3" title="Stroke Size">
-  
+  <input type="range" id="sizePicker" min="1" max="50" value="3">
   <button id="extendBtn">+ Extend</button>
   <button id="exportBtn" style="background: #28a745;">Export PDF</button>
   <button id="clearBtn" style="background:#8b0000;">Clear</button>
@@ -66,262 +58,232 @@ const textInput = document.getElementById("textInput");
 
 let tool = "pen";
 let drawing = false;
-let isMovingSelection = false;
-let isResizing = false;
+let activeObj = null; // Currently selected object
+let transformMode = null; // 'move', 'scale', 'rotate'
 let startX, startY, lastX, lastY;
-let snapshot, selectionData, selectionRect = null;
-let pasteImage = null;
+let snapshot; // Background (static drawings)
 const undoStack = [];
 
 function saveState() {
-  if (undoStack.length >= 30) undoStack.shift();
-  undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+    if (undoStack.length >= 30) undoStack.shift();
+    undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
 }
 
 function undo() {
-  if (undoStack.length > 1) {
-    undoStack.pop();
-    ctx.putImageData(undoStack[undoStack.length - 1], 0, 0);
-    selectionRect = null; 
-  }
+    if (undoStack.length > 1) {
+        undoStack.pop();
+        ctx.putImageData(undoStack[undoStack.length - 1], 0, 0);
+        activeObj = null;
+    }
 }
 saveState();
 
-function finalizeSelection() {
-    if (selectionRect) {
-        if (pasteImage) {
-            ctx.drawImage(pasteImage, selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
-            pasteImage = null;
-        } else if (selectionData) {
-            const tempCanvas = document.createElement('canvas');
-            tempCanvas.width = selectionData.width;
-            tempCanvas.height = selectionData.height;
-            tempCanvas.getContext('2d').putImageData(selectionData, 0, 0);
-            ctx.drawImage(tempCanvas, selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
+// --- OBJECT CLASSES ---
+class CanvasObject {
+    constructor(type, x, y, color, size) {
+        this.type = type; this.x = x; this.y = y; this.w = 0; this.h = 0;
+        this.color = color; this.size = size; this.rotation = 0;
+        this.content = null; // For images or text
+    }
+
+    render(targetCtx) {
+        targetCtx.save();
+        targetCtx.translate(this.x + this.w/2, this.y + this.h/2);
+        targetCtx.rotate(this.rotation);
+        targetCtx.translate(-(this.x + this.w/2), -(this.y + this.h/2));
+        
+        targetCtx.strokeStyle = this.color;
+        targetCtx.fillStyle = this.color;
+        targetCtx.lineWidth = this.size;
+
+        if (this.type === 'image' && this.content) {
+            targetCtx.drawImage(this.content, this.x, this.y, this.w, this.h);
+        } else if (this.type === 'text') {
+            targetCtx.font = `${this.size + 15}px sans-serif`;
+            targetCtx.textBaseline = "top";
+            targetCtx.fillText(this.content, this.x, this.y);
+        } else {
+            this.drawShape(targetCtx);
         }
-        selectionRect = null;
-        selectionData = null;
+        targetCtx.restore();
+    }
+
+    drawShape(tCtx) {
+        tCtx.beginPath();
+        if (this.type === 'line') { tCtx.moveTo(this.x, this.y); tCtx.lineTo(this.x+this.w, this.y+this.h); }
+        else if (this.type === 'arrow') { drawArrow(tCtx, this.x, this.y, this.x+this.w, this.y+this.h); }
+        else if (this.type === 'rect') { tCtx.strokeRect(this.x, this.y, this.w, this.h); }
+        else if (this.type === 'circle') { tCtx.arc(this.x+this.w/2, this.y+this.h/2, Math.abs(this.w/2), 0, Math.PI*2); }
+        else if (this.type === 'star') { drawStar(tCtx, this.x+this.w/2, this.y+this.h/2, 5, this.w/2, this.w/4); }
+        tCtx.stroke();
+    }
+}
+
+// --- CORE LOGIC ---
+function bakeActiveObject() {
+    if (activeObj) {
+        activeObj.render(ctx);
+        activeObj = null;
         saveState();
     }
 }
 
-function finalizeText() {
-    if (textInput.style.display === "block" && textInput.value.trim() !== "") {
-        ctx.fillStyle = colorPicker.value;
-        ctx.font = `${parseInt(sizePicker.value) + 15}px sans-serif`;
-        ctx.textBaseline = "middle";
-        ctx.fillText(textInput.value, startX, startY);
-        saveState();
+function refreshCanvas() {
+    ctx.putImageData(snapshot, 0, 0);
+    if (activeObj) {
+        activeObj.render(ctx);
+        drawSelectionUI(activeObj);
     }
-    textInput.style.display = "none";
-    textInput.value = "";
 }
 
-// Global button logic
-document.querySelectorAll("#toolbar button").forEach(btn => {
-  btn.onclick = () => {
-    if(btn.id === "clearBtn" && confirm("Clear?")) { ctx.clearRect(0,0,canvas.width,canvas.height); saveState(); return; }
-    if(btn.id === "extendBtn") { 
-        const tmp = ctx.getImageData(0,0,canvas.width,canvas.height); 
-        canvas.height += 1000; ctx.putImageData(tmp,0,0); return; 
-    }
-    if(btn.id === "exportBtn") { finalizeSelection(); window.print(); return; }
+function drawSelectionUI(obj) {
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = "#007bff";
+    ctx.lineWidth = 1;
+    ctx.strokeRect(obj.x - 5, obj.y - 5, obj.w + 10, obj.h + 10);
+    ctx.setLineDash([]);
+    // Scale Handle
+    ctx.fillStyle = "#007bff";
+    ctx.fillRect(obj.x + obj.w + 2, obj.y + obj.h + 2, 10, 10);
+    // Rotate Handle
+    ctx.beginPath();
+    ctx.arc(obj.x + obj.w/2, obj.y - 20, 6, 0, Math.PI*2);
+    ctx.fill();
+}
 
-    finalizeSelection(); finalizeText();
-    tool = btn.id.replace("Btn", "");
-    document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
-    btn.classList.add("active");
-  };
-});
-
-shapeSelect.onchange = () => { 
-    if (shapeSelect.value !== "none") {
-        tool = "shape";
-        document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
-    } else {
-        document.getElementById("penBtn").click();
-    }
-};
-
+// --- EVENT LISTENERS ---
 canvas.addEventListener("pointerdown", e => {
-  const x = e.offsetX;
-  const y = e.offsetY;
+    const x = e.offsetX, y = e.offsetY;
 
-  // Handle existing selection interaction
-  if (selectionRect) {
-      const handleSize = 15;
-      if (x >= selectionRect.x + selectionRect.w - handleSize && x <= selectionRect.x + selectionRect.w + handleSize &&
-          y >= selectionRect.y + selectionRect.h - handleSize && y <= selectionRect.y + selectionRect.h + handleSize) {
-          isResizing = true; return;
-      }
-      if (x >= selectionRect.x && x <= selectionRect.x + selectionRect.w &&
-          y >= selectionRect.y && y <= selectionRect.y + selectionRect.h) {
-          isMovingSelection = true; lastX = x; lastY = y; return;
-      }
-      // Clicked outside - close selection
-      finalizeSelection();
-  }
+    if (activeObj) {
+        // 1. Check Rotation Handle
+        const rotX = activeObj.x + activeObj.w/2, rotY = activeObj.y - 20;
+        if (Math.hypot(x - rotX, y - rotY) < 10) { transformMode = 'rotate'; return; }
+        // 2. Check Scale Handle
+        if (x > activeObj.x + activeObj.w && x < activeObj.x + activeObj.w + 15 && 
+            y > activeObj.y + activeObj.h && y < activeObj.y + activeObj.h + 15) {
+            transformMode = 'scale'; return;
+        }
+        // 3. Check Move
+        if (x > activeObj.x && x < activeObj.x + activeObj.w && y > activeObj.y && y < activeObj.y + activeObj.h) {
+            transformMode = 'move'; lastX = x; lastY = y; return;
+        }
+        // 4. Clicked away
+        bakeActiveObject();
+    }
 
-  finalizeText();
-  if (tool === "text") { showTextInput(e); return; }
+    if (tool === 'text') { showTextInput(e); return; }
 
-  drawing = true;
-  startX = x; startY = y;
-  snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-  
-  ctx.strokeStyle = colorPicker.value;
-  ctx.lineWidth = sizePicker.value;
-  ctx.lineCap = "round";
-  ctx.lineJoin = "round";
-  if (tool === 'pen' || tool === 'eraser') { ctx.beginPath(); ctx.moveTo(x, y); }
+    drawing = true;
+    startX = x; startY = y;
+    snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+    if (tool === 'pen' || tool === 'eraser') {
+        ctx.beginPath(); ctx.moveTo(x, y);
+    } else if (shapeSelect.value !== 'none') {
+        activeObj = new CanvasObject(shapeSelect.value, x, y, colorPicker.value, parseInt(sizePicker.value));
+    }
 });
 
 canvas.addEventListener("pointermove", e => {
-  const x = e.offsetX;
-  const y = e.offsetY;
+    const x = e.offsetX, y = e.offsetY;
+    if (transformMode && activeObj) {
+        if (transformMode === 'move') {
+            activeObj.x += (x - lastX); activeObj.y += (y - lastY);
+            lastX = x; lastY = y;
+        } else if (transformMode === 'scale') {
+            activeObj.w = x - activeObj.x; activeObj.h = y - activeObj.y;
+        } else if (transformMode === 'rotate') {
+            activeObj.rotation = Math.atan2(y - (activeObj.y + activeObj.h/2), x - (activeObj.x + activeObj.w/2)) + Math.PI/2;
+        }
+        refreshCanvas(); return;
+    }
 
-  if (isResizing || isMovingSelection) {
-      ctx.putImageData(snapshot, 0, 0);
-      if (isResizing) {
-          selectionRect.w = x - selectionRect.x;
-          selectionRect.h = y - selectionRect.y;
-      } else {
-          selectionRect.x += (x - lastX);
-          selectionRect.y += (y - lastY);
-          lastX = x; lastY = y;
-      }
-      renderSelectionPreview();
-      return;
-  }
-
-  if (!drawing) return;
-
-  if (tool === "pen") { ctx.lineTo(x, y); ctx.stroke(); }
-  else if (tool === "eraser") { 
-      ctx.globalCompositeOperation = "destination-out"; 
-      ctx.lineTo(x, y); ctx.stroke(); 
-      ctx.globalCompositeOperation = "source-over"; 
-  }
-  else {
-    ctx.putImageData(snapshot, 0, 0);
-    const type = (tool === "shape") ? shapeSelect.value : tool;
-    drawShape(type, startX, startY, x, y);
-  }
+    if (!drawing) return;
+    if (tool === 'pen') { ctx.strokeStyle = colorPicker.value; ctx.lineWidth = sizePicker.value; ctx.lineTo(x, y); ctx.stroke(); }
+    else if (tool === 'eraser') { ctx.globalCompositeOperation = "destination-out"; ctx.lineWidth = sizePicker.value; ctx.lineTo(x, y); ctx.stroke(); ctx.globalCompositeOperation = "source-over"; }
+    else if (activeObj) {
+        activeObj.w = x - startX; activeObj.h = y - startY;
+        refreshCanvas();
+    }
 });
 
-canvas.addEventListener("pointerup", e => {
-  if (tool === "select" && drawing) {
-    const w = e.offsetX - startX;
-    const h = e.offsetY - startY;
-    if (Math.abs(w) > 5) {
-      selectionRect = { x: startX, y: startY, w, h };
-      selectionData = ctx.getImageData(startX, startY, w, h);
-      ctx.clearRect(startX, startY, w, h);
-      snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      renderSelectionPreview();
-    }
-  }
-  drawing = false; isMovingSelection = false; isResizing = false;
-  if (tool !== "select" && !selectionRect) saveState();
+canvas.addEventListener("pointerup", () => {
+    drawing = false; transformMode = null;
+    if (tool === 'pen' || tool === 'eraser') saveState();
+    else if (activeObj) refreshCanvas();
 });
 
-function drawShape(type, sx, sy, ex, ey) {
-    ctx.beginPath();
-    const w = ex - sx;
-    const h = ey - sy;
-
-    if (type === "line") {
-        ctx.moveTo(sx, sy); ctx.lineTo(ex, ey);
-    } else if (type === "rect") {
-        ctx.strokeRect(sx, sy, w, h);
-    } else if (type === "circle") {
-        ctx.arc(sx, sy, Math.hypot(w, h), 0, Math.PI*2);
-    } else if (type === "semicircle") {
-        ctx.arc(sx, sy, Math.abs(w), 0, Math.PI, false);
-    } else if (type === "arrow" || type === "doubleArrow") {
-        drawArrow(sx, sy, ex, ey, type === "doubleArrow");
-    } else if (type === "star") {
-        drawStar(sx, sy, 5, Math.hypot(w, h), Math.hypot(w, h)/2.5);
-    } else if (type === "select") {
-        drawSelectionDashes(sx, sy, w, h);
-    }
-    ctx.stroke();
-}
-
-function drawArrow(x1, y1, x2, y2, double) {
-    const headlen = 15;
-    const angle = Math.atan2(y2 - y1, x2 - x1);
-    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
-    ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
-    ctx.moveTo(x2, y2);
-    ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
-    if (double) {
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x1 + headlen * Math.cos(angle - Math.PI / 6), y1 + headlen * Math.sin(angle - Math.PI / 6));
-        ctx.moveTo(x1, y1);
-        ctx.lineTo(x1 + headlen * Math.cos(angle + Math.PI / 6), y1 + headlen * Math.sin(angle + Math.PI / 6));
-    }
-}
-
-function drawStar(cx, cy, spikes, outerRadius, innerRadius) {
-    let rot = Math.PI / 2 * 3; let x = cx; let y = cy; let step = Math.PI / spikes;
-    ctx.moveTo(cx, cy - outerRadius);
-    for (let i = 0; i < spikes; i++) {
-        x = cx + Math.cos(rot) * outerRadius; y = cy + Math.sin(rot) * outerRadius;
-        ctx.lineTo(x, y); rot += step;
-        x = cx + Math.cos(rot) * innerRadius; y = cy + Math.sin(rot) * innerRadius;
-        ctx.lineTo(x, y); rot += step;
-    }
-    ctx.lineTo(cx, cy - outerRadius); ctx.closePath();
-}
-
-function renderSelectionPreview() {
-    if (!selectionRect) return;
-    if (pasteImage) ctx.drawImage(pasteImage, selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
-    else if (selectionData) {
-        const c = document.createElement('canvas'); c.width = selectionData.width; c.height = selectionData.height;
-        c.getContext('2d').putImageData(selectionData, 0, 0);
-        ctx.drawImage(c, selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
-    }
-    drawSelectionDashes(selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
-}
-
-function drawSelectionDashes(x, y, w, h) {
-  ctx.setLineDash([5, 5]); ctx.strokeStyle = "#007bff"; ctx.lineWidth = 1;
-  ctx.strokeRect(x, y, w, h);
-  ctx.fillStyle = "#007bff"; ctx.fillRect(x + w - 5, y + h - 5, 10, 10);
-  ctx.setLineDash([]);
-}
-
+// --- HELPERS ---
 function showTextInput(e) {
-  const fontSize = parseInt(sizePicker.value) + 15;
-  textInput.style.display = "block"; textInput.style.left = e.pageX + "px"; textInput.style.top = (e.pageY - fontSize/2) + "px";
-  textInput.style.fontSize = fontSize + "px"; textInput.style.color = colorPicker.value;
-  startX = e.offsetX; startY = e.offsetY;
-  setTimeout(() => textInput.focus(), 10);
+    const fontSize = parseInt(sizePicker.value) + 15;
+    textInput.style.display = "block";
+    textInput.style.left = e.pageX + "px"; textInput.style.top = (e.pageY - fontSize/2) + "px";
+    textInput.style.fontSize = fontSize + "px"; textInput.style.color = colorPicker.value;
+    startX = e.offsetX; startY = e.offsetY;
+    setTimeout(() => textInput.focus(), 10);
 }
 
-textInput.onblur = () => finalizeText();
-textInput.onkeydown = e => { if (e.key === "Enter") finalizeText(); };
+textInput.onblur = () => {
+    if (textInput.value.trim() !== "") {
+        activeObj = new CanvasObject('text', startX, startY, colorPicker.value, parseInt(sizePicker.value));
+        activeObj.content = textInput.value;
+        activeObj.w = ctx.measureText(textInput.value).width; activeObj.h = parseInt(sizePicker.value) + 15;
+        refreshCanvas();
+    }
+    textInput.style.display = "none"; textInput.value = "";
+};
 
 window.addEventListener('paste', e => {
-  const items = e.clipboardData.items;
-  for (let item of items) {
+    const item = e.clipboardData.items[0];
     if (item.type.indexOf("image") !== -1) {
-      const blob = item.getAsFile(); const img = new Image();
-      img.onload = () => {
-        finalizeSelection(); snapshot = ctx.getImageData(0,0,canvas.width,canvas.height);
-        pasteImage = img; selectionRect = { x: 50, y: 50, w: img.width, h: img.height };
-        renderSelectionPreview();
-      };
-      img.src = URL.createObjectURL(blob);
+        const img = new Image();
+        img.onload = () => {
+            bakeActiveObject();
+            snapshot = ctx.getImageData(0,0,canvas.width,canvas.height);
+            activeObj = new CanvasObject('image', 50, 50, null, 0);
+            activeObj.content = img; activeObj.w = img.width/2; activeObj.h = img.height/2;
+            refreshCanvas();
+        };
+        img.src = URL.createObjectURL(item.getAsFile());
     }
-  }
 });
 
+function drawArrow(tCtx, x1, y1, x2, y2) {
+    const headlen = 15; const angle = Math.atan2(y2 - y1, x2 - x1);
+    tCtx.moveTo(x1, y1); tCtx.lineTo(x2, y2);
+    tCtx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+    tCtx.moveTo(x2, y2);
+    tCtx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+}
+
+function drawStar(tCtx, cx, cy, spikes, outerRadius, innerRadius) {
+    let rot = Math.PI / 2 * 3; let x = cx; let y = cy; let step = Math.PI / spikes;
+    tCtx.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+        x = cx + Math.cos(rot) * outerRadius; y = cy + Math.sin(rot) * outerRadius; tCtx.lineTo(x, y); rot += step;
+        x = cx + Math.cos(rot) * innerRadius; y = cy + Math.sin(rot) * innerRadius; tCtx.lineTo(x, y); rot += step;
+    }
+    tCtx.closePath();
+}
+
+// Tool switching
+document.querySelectorAll("#toolbar button").forEach(btn => {
+    btn.onclick = () => {
+        if (btn.id === 'clearBtn') { ctx.clearRect(0,0,canvas.width,canvas.height); saveState(); return; }
+        bakeActiveObject();
+        tool = btn.id.replace("Btn", "");
+        document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
+        btn.classList.add("active");
+        shapeSelect.value = "none";
+    };
+});
+
+shapeSelect.onchange = () => { if (shapeSelect.value !== "none") { bakeActiveObject(); tool = "shape"; } };
+
 document.addEventListener("keydown", e => {
-  if (e.key === "Delete" && selectionRect) { ctx.putImageData(snapshot, 0, 0); selectionRect = null; saveState(); }
-  if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
+    if (e.key === "Delete" && activeObj) { activeObj = null; refreshCanvas(); }
+    if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
 });
 </script>
 </body>
