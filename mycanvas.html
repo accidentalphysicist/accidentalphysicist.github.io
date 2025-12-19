@@ -1,62 +1,68 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Teaching Canvas</title>
+<meta charset="UTF-8">
+<title>Teaching Canvas</title>
 
-  <style>
-    body {
-      margin: 0;
-      font-family: sans-serif;
-      background: #1e1e1e;
-      color: white;
-    }
+<style>
+  body {
+    margin: 0;
+    background: #1e1e1e;
+    font-family: sans-serif;
+    color: white;
+  }
 
-    #toolbar {
-      position: fixed;
-      top: 0;
-      left: 0;
-      right: 0;
-      background: #2b2b2b;
-      display: flex;
-      gap: 10px;
-      padding: 8px;
-      z-index: 10;
-    }
+  #toolbar {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    background: #2b2b2b;
+    padding: 8px;
+    display: flex;
+    gap: 8px;
+    z-index: 10;
+  }
 
-    button, input[type="color"] {
-      padding: 5px 8px;
-      cursor: pointer;
-    }
+  button, input {
+    padding: 6px;
+    cursor: pointer;
+  }
 
-    #canvas-container {
-      margin-top: 60px;
-      overflow-y: scroll;
-      height: calc(100vh - 60px);
-    }
+  button.active {
+    outline: 2px solid yellow;
+  }
 
-    canvas {
-      background: white;
-      display: block;
-      margin: auto;
-    }
+  #canvas-container {
+    margin-top: 60px;
+    height: calc(100vh - 60px);
+    overflow-y: scroll;
+  }
 
-    .active {
-      outline: 2px solid yellow;
-    }
-  </style>
+  canvas {
+    background: white;
+    display: block;
+    margin: auto;
+  }
+
+  textarea {
+    resize: none;
+    outline: none;
+  }
+</style>
 </head>
+
 <body>
 
 <div id="toolbar">
-  <button id="penBtn">Pen</button>
+  <button id="penBtn" class="active">Pen</button>
   <button id="eraserBtn">Eraser</button>
   <button id="lineBtn">Line</button>
-  <button id="rectBtn">Rectangle</button>
+  <button id="rectBtn">Rect</button>
   <button id="circleBtn">Circle</button>
 
   <input type="color" id="colorPicker" value="#000000">
-  <input type="range" id="sizePicker" min="1" max="10" value="2">
+  <input type="range" id="sizePicker" min="1" max="12" value="3">
 
   <button id="exportBtn">Export PDF</button>
 </div>
@@ -68,6 +74,9 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
 <script>
+/* =========================
+   BASIC SETUP
+========================= */
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -77,13 +86,12 @@ ctx.lineJoin = "round";
 let tool = "pen";
 let drawing = false;
 let startX, startY;
-let lastX, lastY;
+let lastX = 0, lastY = 0;
 let pointerType = "mouse";
-let currentTextPos = null;
 
-// =======================
-// UNDO / REDO
-// =======================
+/* =========================
+   UNDO / REDO
+========================= */
 const undoStack = [];
 const redoStack = [];
 const MAX_HISTORY = 50;
@@ -94,7 +102,7 @@ function saveState() {
   redoStack.length = 0;
 }
 
-function restoreState(from, to) {
+function restore(from, to) {
   if (!from.length) return;
   to.push(canvas.toDataURL());
 
@@ -109,39 +117,39 @@ function restoreState(from, to) {
 document.addEventListener("keydown", e => {
   if (e.ctrlKey && e.key === "z") {
     e.preventDefault();
-    restoreState(undoStack, redoStack);
+    restore(undoStack, redoStack);
   }
   if (e.ctrlKey && e.key === "y") {
     e.preventDefault();
-    restoreState(redoStack, undoStack);
+    restore(redoStack, undoStack);
   }
 });
 
-// Save initial blank state
-saveState();
+saveState(); // initial blank state
 
-// =======================
-// TOOL SELECTION
-// =======================
-function setTool(t) {
-  tool = t;
+/* =========================
+   TOOL SELECTION
+========================= */
+function setTool(name, btn) {
+  tool = name;
+  document.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+  btn.classList.add("active");
 }
 
-document.getElementById("penBtn").onclick = () => setTool("pen");
-document.getElementById("eraserBtn").onclick = () => setTool("eraser");
-document.getElementById("lineBtn").onclick = () => setTool("line");
-document.getElementById("rectBtn").onclick = () => setTool("rect");
-document.getElementById("circleBtn").onclick = () => setTool("circle");
+penBtn.onclick = () => setTool("pen", penBtn);
+eraserBtn.onclick = () => setTool("eraser", eraserBtn);
+lineBtn.onclick = () => setTool("line", lineBtn);
+rectBtn.onclick = () => setTool("rect", rectBtn);
+circleBtn.onclick = () => setTool("circle", circleBtn);
 
-// =======================
-// POINTER EVENTS (Stylus Friendly)
-// =======================
+/* =========================
+   POINTER EVENTS (Stylus Friendly)
+========================= */
 canvas.addEventListener("pointerdown", e => {
   drawing = true;
   pointerType = e.pointerType;
   startX = lastX = e.offsetX;
   startY = lastY = e.offsetY;
-
   ctx.beginPath();
   ctx.moveTo(startX, startY);
 });
@@ -150,12 +158,12 @@ canvas.addEventListener("pointermove", e => {
   if (!drawing) return;
 
   const pressure = e.pressure || 0.5;
-  const baseSize = document.getElementById("sizePicker").value;
+  const baseSize = sizePicker.value;
   ctx.lineWidth = baseSize * (pointerType === "pen" ? pressure * 2 : 1);
 
   if (tool === "pen") {
     ctx.globalCompositeOperation = "source-over";
-    ctx.strokeStyle = document.getElementById("colorPicker").value;
+    ctx.strokeStyle = colorPicker.value;
     ctx.lineTo(e.offsetX, e.offsetY);
     ctx.stroke();
   }
@@ -199,57 +207,54 @@ canvas.addEventListener("pointerup", e => {
   saveState();
 });
 
-// =======================
-// TEXT INPUT (Keyboard)
-// =======================
+/* =========================
+   TEXT INPUT (Keyboard)
+========================= */
 canvas.addEventListener("dblclick", e => {
   createTextInput(e.offsetX, e.offsetY);
 });
 
-function createTextInput(x, y, presetText = "") {
-  const textarea = document.createElement("textarea");
-  textarea.style.position = "absolute";
-  textarea.style.left = canvas.offsetLeft + x + "px";
-  textarea.style.top = canvas.offsetTop + y + "px";
-  textarea.style.font = "18px sans-serif";
-  textarea.style.border = "1px dashed gray";
-  textarea.value = presetText;
+function createTextInput(x, y, preset = "") {
+  const ta = document.createElement("textarea");
+  ta.value = preset;
+  ta.style.position = "absolute";
+  ta.style.left = canvas.offsetLeft + x + "px";
+  ta.style.top = canvas.offsetTop + y + "px";
+  ta.style.font = "18px sans-serif";
+  ta.style.border = "1px dashed gray";
 
-  document.body.appendChild(textarea);
-  textarea.focus();
+  document.body.appendChild(ta);
+  ta.focus();
 
-  textarea.onblur = () => {
-    drawText(textarea.value, x, y);
-    textarea.remove();
+  ta.onblur = () => {
+    drawText(ta.value, x, y);
+    ta.remove();
     saveState();
   };
 }
 
 function drawText(text, x, y) {
-  ctx.fillStyle = document.getElementById("colorPicker").value;
+  ctx.fillStyle = colorPicker.value;
   ctx.font = "18px sans-serif";
   text.split("\n").forEach((line, i) => {
     ctx.fillText(line, x, y + i * 22);
   });
 }
 
-// =======================
-// COPY / PASTE SUPPORT
-// =======================
+/* =========================
+   COPY / PASTE SUPPORT
+========================= */
 document.addEventListener("paste", e => {
   const text = e.clipboardData.getData("text");
   if (!text) return;
-
-  const x = lastX || 50;
-  const y = lastY || 50;
-  drawText(text, x, y);
+  drawText(text, lastX || 50, lastY || 50);
   saveState();
 });
 
-// =======================
-// EXPORT PDF
-// =======================
-document.getElementById("exportBtn").onclick = () => {
+/* =========================
+   EXPORT TO PDF
+========================= */
+exportBtn.onclick = () => {
   const { jsPDF } = window.jspdf;
   const pdf = new jsPDF("p", "px", "a4");
 
@@ -266,7 +271,6 @@ document.getElementById("exportBtn").onclick = () => {
   pdf.save("class-notes.pdf");
 };
 </script>
-
 
 </body>
 </html>
