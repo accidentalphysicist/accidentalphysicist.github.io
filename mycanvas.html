@@ -60,7 +60,7 @@
   <button id="lineBtn">Line</button>
   <button id="rectBtn">Rect</button>
   <button id="circleBtn">Circle</button>
-
+  <button id="selectBtn">Select</button>
   <input type="color" id="colorPicker" value="#000000">
   <input type="range" id="sizePicker" min="1" max="12" value="3">
 
@@ -71,12 +71,7 @@
   <canvas id="canvas" width="1200" height="10000"></canvas>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
-
 <script>
-/* =========================
-   BASIC SETUP
-========================= */
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
@@ -125,14 +120,14 @@ document.addEventListener("keydown", e => {
   }
 });
 
-saveState(); // initial blank state
+saveState();
 
 /* =========================
    TOOL SELECTION
 ========================= */
 function setTool(name, btn) {
   tool = name;
-  document.querySelectorAll("button").forEach(b => b.classList.remove("active"));
+  document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
   btn.classList.add("active");
 }
 
@@ -141,28 +136,60 @@ eraserBtn.onclick = () => setTool("eraser", eraserBtn);
 lineBtn.onclick = () => setTool("line", lineBtn);
 rectBtn.onclick = () => setTool("rect", rectBtn);
 circleBtn.onclick = () => setTool("circle", circleBtn);
+selectBtn.onclick = () => setTool("select", selectBtn);
 
 /* =========================
-   POINTER EVENTS (Stylus Friendly)
+   SELECTION STATE
+========================= */
+let selection = null;
+let selectionImage = null;
+let draggingSelection = false;
+
+/* =========================
+   POINTER EVENTS
 ========================= */
 canvas.addEventListener("pointerdown", e => {
-  drawing = true;
-  pointerType = e.pointerType;
   startX = lastX = e.offsetX;
   startY = lastY = e.offsetY;
+  pointerType = e.pointerType;
+
+  if (tool === "select" && selection &&
+      e.offsetX > selection.x &&
+      e.offsetX < selection.x + selection.w &&
+      e.offsetY > selection.y &&
+      e.offsetY < selection.y + selection.h) {
+    draggingSelection = true;
+    return;
+  }
+
+  drawing = true;
   ctx.beginPath();
   ctx.moveTo(startX, startY);
 });
 
 canvas.addEventListener("pointermove", e => {
+  if (tool === "select" && drawing) {
+    redraw();
+    drawSelectionBox(startX, startY, e.offsetX - startX, e.offsetY - startY);
+    return;
+  }
+
+  if (draggingSelection) {
+    redraw();
+    selection.x = e.offsetX - selection.w / 2;
+    selection.y = e.offsetY - selection.h / 2;
+    ctx.putImageData(selectionImage, selection.x, selection.y);
+    drawSelectionOutline();
+    return;
+  }
+
   if (!drawing) return;
 
   const pressure = e.pressure || 0.5;
-  const baseSize = sizePicker.value;
-  ctx.lineWidth = baseSize * (pointerType === "pen" ? pressure * 2 : 1);
+  const size = sizePicker.value;
+  ctx.lineWidth = size * (pointerType === "pen" ? pressure * 2 : 1);
 
   if (tool === "pen") {
-    ctx.globalCompositeOperation = "source-over";
     ctx.strokeStyle = colorPicker.value;
     ctx.lineTo(e.offsetX, e.offsetY);
     ctx.stroke();
@@ -172,6 +199,7 @@ canvas.addEventListener("pointermove", e => {
     ctx.globalCompositeOperation = "destination-out";
     ctx.lineTo(e.offsetX, e.offsetY);
     ctx.stroke();
+    ctx.globalCompositeOperation = "source-over";
   }
 
   lastX = e.offsetX;
@@ -179,26 +207,48 @@ canvas.addEventListener("pointermove", e => {
 });
 
 canvas.addEventListener("pointerup", e => {
-  if (!drawing) return;
-  drawing = false;
-  ctx.globalCompositeOperation = "source-over";
+  if (tool === "select" && drawing) {
+    drawing = false;
+    const w = e.offsetX - startX;
+    const h = e.offsetY - startY;
 
-  const endX = e.offsetX;
-  const endY = e.offsetY;
+    selection = {
+      x: Math.min(startX, e.offsetX),
+      y: Math.min(startY, e.offsetY),
+      w: Math.abs(w),
+      h: Math.abs(h)
+    };
+
+    selectionImage = ctx.getImageData(selection.x, selection.y, selection.w, selection.h);
+    ctx.clearRect(selection.x, selection.y, selection.w, selection.h);
+    redraw();
+    ctx.putImageData(selectionImage, selection.x, selection.y);
+    drawSelectionOutline();
+    saveState();
+    return;
+  }
+
+  if (draggingSelection) {
+    draggingSelection = false;
+    saveState();
+    return;
+  }
+
+  drawing = false;
 
   if (tool === "line") {
     ctx.beginPath();
     ctx.moveTo(startX, startY);
-    ctx.lineTo(endX, endY);
+    ctx.lineTo(e.offsetX, e.offsetY);
     ctx.stroke();
   }
 
   if (tool === "rect") {
-    ctx.strokeRect(startX, startY, endX - startX, endY - startY);
+    ctx.strokeRect(startX, startY, e.offsetX - startX, e.offsetY - startY);
   }
 
   if (tool === "circle") {
-    const r = Math.hypot(endX - startX, endY - startY);
+    const r = Math.hypot(e.offsetX - startX, e.offsetY - startY);
     ctx.beginPath();
     ctx.arc(startX, startY, r, 0, Math.PI * 2);
     ctx.stroke();
@@ -208,69 +258,41 @@ canvas.addEventListener("pointerup", e => {
 });
 
 /* =========================
-   TEXT INPUT (Keyboard)
+   DELETE SELECTION
 ========================= */
-canvas.addEventListener("dblclick", e => {
-  createTextInput(e.offsetX, e.offsetY);
+document.addEventListener("keydown", e => {
+  if (e.key === "Delete" && selection) {
+    redraw();
+    selection = null;
+    selectionImage = null;
+    saveState();
+  }
 });
 
-function createTextInput(x, y, preset = "") {
-  const ta = document.createElement("textarea");
-  ta.value = preset;
-  ta.style.position = "absolute";
-  ta.style.left = canvas.offsetLeft + x + "px";
-  ta.style.top = canvas.offsetTop + y + "px";
-  ta.style.font = "18px sans-serif";
-  ta.style.border = "1px dashed gray";
-
-  document.body.appendChild(ta);
-  ta.focus();
-
-  ta.onblur = () => {
-    drawText(ta.value, x, y);
-    ta.remove();
-    saveState();
+/* =========================
+   HELPERS
+========================= */
+function redraw() {
+  const img = new Image();
+  img.src = undoStack[undoStack.length - 1];
+  img.onload = () => {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.drawImage(img, 0, 0);
   };
 }
 
-function drawText(text, x, y) {
-  ctx.fillStyle = colorPicker.value;
-  ctx.font = "18px sans-serif";
-  text.split("\n").forEach((line, i) => {
-    ctx.fillText(line, x, y + i * 22);
-  });
+function drawSelectionBox(x, y, w, h) {
+  ctx.setLineDash([6, 4]);
+  ctx.strokeStyle = "blue";
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
 }
 
-/* =========================
-   COPY / PASTE SUPPORT
-========================= */
-document.addEventListener("paste", e => {
-  const text = e.clipboardData.getData("text");
-  if (!text) return;
-  drawText(text, lastX || 50, lastY || 50);
-  saveState();
-});
-
-/* =========================
-   EXPORT TO PDF
-========================= */
-exportBtn.onclick = () => {
-  const { jsPDF } = window.jspdf;
-  const pdf = new jsPDF("p", "px", "a4");
-
-  const img = canvas.toDataURL("image/png");
-  const imgHeight = canvas.height * 595 / canvas.width;
-  let y = 0;
-
-  while (y < imgHeight) {
-    pdf.addImage(img, "PNG", 0, -y, 595, imgHeight);
-    y += pdf.internal.pageSize.height;
-    if (y < imgHeight) pdf.addPage();
-  }
-
-  pdf.save("class-notes.pdf");
-};
+function drawSelectionOutline() {
+  drawSelectionBox(selection.x, selection.y, selection.w, selection.h);
+}
 </script>
+
 
 </body>
 </html>
