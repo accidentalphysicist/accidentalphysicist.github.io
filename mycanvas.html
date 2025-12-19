@@ -2,248 +2,238 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Pro Teaching Canvas - Object Layering</title>
+<title>Teaching Canvas Pro</title>
 <style>
   body { margin: 0; background: #1e1e1e; font-family: sans-serif; color: white; overflow: hidden; }
+  
   #toolbar {
     position: fixed; top: 0; left: 0; right: 0;
-    background: #2b2b2b; padding: 8px; display: flex; gap: 8px; z-index: 100;
+    background: #2b2b2b; padding: 8px; display: flex; gap: 10px; z-index: 1000;
     box-shadow: 0 2px 10px rgba(0,0,0,0.5); align-items: center;
   }
-  button, input, select { padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px; background: #444; color: white; font-weight: bold; }
+
+  .canvas-wrapper {
+    position: relative; margin-top: 60px; height: calc(100vh - 60px);
+    overflow: auto; background: #333; display: flex; justify-content: center;
+  }
+
+  /* The permanent drawing layer */
+  #mainCanvas { background: white; z-index: 1; }
+  
+  /* The temporary UI layer (Dashed lines, handles) */
+  #overlayCanvas { 
+    position: absolute; top: 20px; pointer-events: none; z-index: 2; 
+  }
+
+  button, input, select { padding: 8px; cursor: pointer; border: none; border-radius: 4px; background: #444; color: white; }
   button.active { background: #007bff; outline: 2px solid yellow; }
-  #canvas-container { margin-top: 60px; height: calc(100vh - 60px); overflow: auto; background: #333; position: relative; }
-  canvas { background: white; display: block; margin: 20px auto; cursor: crosshair; touch-action: none; }
-  #textInput { position: absolute; display: none; background: white; border: 1px solid #007bff; color: black; outline: none; z-index: 1000; }
-  .group { display: flex; align-items: center; gap: 5px; border-right: 1px solid #555; padding-right: 10px; }
+
+  #textToolbar {
+    position: fixed; top: 60px; left: 50%; transform: translateX(-50%);
+    background: #444; padding: 5px; border-radius: 0 0 8px 8px;
+    display: none; gap: 10px; z-index: 1100; align-items: center;
+  }
+
+  #textInput {
+    position: absolute; display: none; background: white; border: 1px solid #007bff;
+    color: black; outline: none; z-index: 1200; padding: 2px;
+  }
 </style>
 </head>
 <body>
 
 <div id="toolbar">
-  <div class="group">
-    <button id="penBtn" class="active">Pen</button>
-    <button id="eraserBtn">Eraser</button>
-    <button id="textBtn">Text</button>
-    <button id="selectBtn">Select</button>
-  </div>
-  <div class="group">
-    <select id="shapeSelect">
-      <option value="none">Shapes...</option>
-      <option value="line">Line</option>
-      <option value="arrow">Arrow</option>
-      <option value="rect">Rectangle</option>
-      <option value="circle">Circle</option>
-    </select>
-  </div>
+  <button id="penBtn" class="active">Pen</button>
+  <button id="eraserBtn">Eraser</button>
+  <button id="textBtn">Text</button>
+  <button id="selectBtn">Select</button>
+  <select id="shapeSelect">
+    <option value="none">Shapes...</option>
+    <option value="line">Line</option>
+    <option value="arrow">Arrow</option>
+    <option value="rect">Rectangle</option>
+    <option value="circle">Circle</option>
+  </select>
   <input type="color" id="colorPicker" value="#000000">
-  <input type="range" id="sizePicker" min="1" max="50" value="3">
+  <input type="range" id="sizePicker" min="1" max="50" value="3" title="Line Thickness">
   <button id="exportBtn" style="background: #28a745;">Export PDF</button>
   <button id="clearBtn" style="background:#8b0000;">Clear</button>
 </div>
 
-<div id="canvas-container">
-  <canvas id="canvas" width="1200" height="1500"></canvas>
+<div id="textToolbar">
+  <select id="fontFamily">
+    <option value="sans-serif">Sans-Serif</option>
+    <option value="serif">Serif</option>
+    <option value="monospace">Monospace</option>
+  </select>
+  <input type="number" id="fontSize" value="20" style="width: 50px;">
+  <button id="boldBtn">B</button>
+</div>
+
+<div class="canvas-wrapper">
+  <canvas id="mainCanvas" width="1200" height="2000"></canvas>
+  <canvas id="overlayCanvas" width="1200" height="2000"></canvas>
   <input type="text" id="textInput">
 </div>
 
 <script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const colorPicker = document.getElementById("colorPicker");
-const sizePicker = document.getElementById("sizePicker");
-const shapeSelect = document.getElementById("shapeSelect");
+const mainCanvas = document.getElementById("mainCanvas");
+const mctx = mainCanvas.getContext("2d", { willReadFrequently: true });
+const overlayCanvas = document.getElementById("overlayCanvas");
+const octx = overlayCanvas.getContext("2d");
+
 const textInput = document.getElementById("textInput");
+const textToolbar = document.getElementById("textToolbar");
 
 let tool = "pen";
 let drawing = false;
-let activeObj = null; 
-let transformMode = null; 
-let startX, startY, lastX, lastY;
-
-// This holds the permanent pixel data (Pen/Eraser/Baked Objects)
-let bgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-
-function saveToBackground() {
-    bgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
-}
-
-function bake() {
-    if (activeObj) {
-        // Draw the object permanently to the canvas
-        activeObj.draw(ctx, false); 
-        activeObj = null;
-        saveToBackground();
-        render();
-    }
-}
-
-function render() {
-    // 1. Clear everything
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    // 2. Put back the permanent background
-    ctx.putImageData(bgData, 0, 0);
-    // 3. Draw the active object on top (with UI if active)
-    if (activeObj) {
-        activeObj.draw(ctx, true);
-    }
-}
+let activeObj = null;
+let transformMode = null;
+let lastX, lastY, startX, startY;
+let isBold = false;
 
 class CanvasObject {
-    constructor(type, x, y, color, size, content = null) {
+    constructor(type, x, y, color, size, content = "") {
         this.type = type; this.x = x; this.y = y; this.w = 5; this.h = 5;
         this.color = color; this.size = size; this.content = content;
+        this.font = document.getElementById("fontFamily").value;
+        this.fontSize = parseInt(document.getElementById("fontSize").value);
+        this.bold = isBold;
     }
-    draw(tCtx, showUI) {
-        tCtx.save();
-        tCtx.strokeStyle = this.color;
-        tCtx.fillStyle = this.color;
-        tCtx.lineWidth = this.size;
+
+    draw(ctx, isUI) {
+        ctx.save();
+        ctx.strokeStyle = this.color;
+        ctx.fillStyle = this.color;
+        ctx.lineWidth = this.size;
 
         if (this.type === 'text') {
-            tCtx.font = `${this.size + 15}px sans-serif`;
-            tCtx.textBaseline = "top";
-            tCtx.fillText(this.content, this.x, this.y);
-            // Update bounds for text based on measurement
-            let metrics = tCtx.measureText(this.content);
-            this.w = metrics.width;
-            this.h = this.size + 15;
+            ctx.font = `${this.bold ? 'bold ' : ''}${this.fontSize}px ${this.font}`;
+            ctx.textBaseline = "top";
+            ctx.fillText(this.content, this.x, this.y);
+            const m = ctx.measureText(this.content);
+            this.w = m.width; this.h = this.fontSize;
         } else if (this.type === 'rect') {
-            tCtx.strokeRect(this.x, this.y, this.w, this.h);
+            ctx.strokeRect(this.x, this.y, this.w, this.h);
         } else if (this.type === 'circle') {
-            tCtx.beginPath();
-            tCtx.arc(this.x + this.w/2, this.y + this.h/2, Math.abs(this.w/2), 0, Math.PI*2);
-            tCtx.stroke();
+            ctx.beginPath(); ctx.arc(this.x+this.w/2, this.y+this.h/2, Math.abs(this.w/2), 0, Math.PI*2); ctx.stroke();
         } else if (this.type === 'line' || this.type === 'arrow') {
-            tCtx.beginPath();
-            tCtx.moveTo(this.x, this.y);
-            tCtx.lineTo(this.x + this.w, this.y + this.h);
-            if (this.type === 'arrow') drawArrowHead(tCtx, this.x, this.y, this.x + this.w, this.y + this.h);
-            tCtx.stroke();
+            ctx.beginPath(); ctx.moveTo(this.x, this.y); ctx.lineTo(this.x+this.w, this.y+this.h);
+            if(this.type === 'arrow') drawArrow(ctx, this.x, this.y, this.x+this.w, this.y+this.h);
+            ctx.stroke();
         }
-
-        if (showUI) {
-            tCtx.setLineDash([5, 5]);
-            tCtx.strokeStyle = "#007bff";
-            tCtx.lineWidth = 1;
-            tCtx.strokeRect(this.x - 4, this.y - 4, this.w + 8, this.h + 8);
-            tCtx.setLineDash([]);
-            tCtx.fillStyle = "#007bff";
-            tCtx.fillRect(this.x + this.w, this.y + this.h, 10, 10); // Scale handle
-        }
-        tCtx.restore();
+        ctx.restore();
     }
 }
 
-function drawArrowHead(tCtx, x1, y1, x2, y2) {
+function drawArrow(ctx, x1, y1, x2, y2) {
     const headlen = 15; const angle = Math.atan2(y2 - y1, x2 - x1);
-    tCtx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
-    tCtx.moveTo(x2, y2);
-    tCtx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+    ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
 }
 
-// Interactions
-canvas.addEventListener("pointerdown", e => {
+function renderOverlay() {
+    octx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    if (activeObj) {
+        activeObj.draw(octx, true);
+        octx.setLineDash([5, 5]);
+        octx.strokeStyle = "#007bff";
+        octx.strokeRect(activeObj.x - 5, activeObj.y - 5, activeObj.w + 10, activeObj.h + 10);
+        octx.setLineDash([]);
+        octx.fillStyle = "#007bff";
+        octx.fillRect(activeObj.x + activeObj.w, activeObj.y + activeObj.h, 12, 12); // Scale handle
+    }
+}
+
+function finalize() {
+    if (activeObj) {
+        activeObj.draw(mctx, false);
+        activeObj = null;
+        octx.clearRect(0, 0, overlayCanvas.width, overlayCanvas.height);
+    }
+}
+
+mainCanvas.addEventListener("pointerdown", e => {
     const x = e.offsetX, y = e.offsetY;
 
     if (activeObj) {
-        // Check scale handle
-        if (x > activeObj.x + activeObj.w && x < activeObj.x + activeObj.w + 20 &&
-            y > activeObj.y + activeObj.h && y < activeObj.y + activeObj.h + 20) {
+        if (x > activeObj.x + activeObj.w && x < activeObj.x + activeObj.w + 25 &&
+            y > activeObj.y + activeObj.h && y < activeObj.y + activeObj.h + 25) {
             transformMode = "scale"; return;
         }
-        // Check move
         if (x > activeObj.x && x < activeObj.x + activeObj.w && y > activeObj.y && y < activeObj.y + activeObj.h) {
             transformMode = "move"; lastX = x; lastY = y; return;
         }
-        bake(); // Clicked away
     }
 
-    if (tool === 'text') { 
-        showTextInput(e); return; 
-    }
-
+    finalize();
+    if (tool === 'text') { showTextInput(e); return; }
+    
     drawing = true;
     startX = x; startY = y;
-
+    
     if (tool === 'pen' || tool === 'eraser') {
-        ctx.beginPath(); ctx.moveTo(x, y);
-    } else if (shapeSelect.value !== 'none') {
-        activeObj = new CanvasObject(shapeSelect.value, x, y, colorPicker.value, parseInt(sizePicker.value));
+        mctx.beginPath(); mctx.moveTo(x, y);
+    } else if (document.getElementById("shapeSelect").value !== "none") {
+        activeObj = new CanvasObject(document.getElementById("shapeSelect").value, x, y, document.getElementById("colorPicker").value, parseInt(document.getElementById("sizePicker").value));
     }
 });
 
-canvas.addEventListener("pointermove", e => {
+mainCanvas.addEventListener("pointermove", e => {
     const x = e.offsetX, y = e.offsetY;
 
     if (transformMode && activeObj) {
-        if (transformMode === "scale") {
-            activeObj.w = x - activeObj.x; activeObj.h = y - activeObj.y;
-        } else {
-            activeObj.x += (x - lastX); activeObj.y += (y - lastY);
-            lastX = x; lastY = y;
-        }
-        render(); return;
+        if (transformMode === "scale") { activeObj.w = x - activeObj.x; activeObj.h = y - activeObj.y; }
+        else { activeObj.x += (x - lastX); activeObj.y += (y - lastY); lastX = x; lastY = y; }
+        renderOverlay(); return;
     }
 
     if (!drawing) return;
-
     if (tool === 'pen' || tool === 'eraser') {
-        ctx.lineWidth = sizePicker.value;
-        ctx.lineCap = "round";
-        ctx.strokeStyle = (tool === 'eraser') ? "white" : colorPicker.value;
-        if (tool === 'eraser') {
-            // Manual erase to background color instead of destination-out to prevent transparency issues in PDF
-            ctx.strokeStyle = "white"; 
-        }
-        ctx.lineTo(x, y); ctx.stroke();
+        mctx.lineWidth = document.getElementById("sizePicker").value;
+        mctx.lineCap = "round";
+        mctx.strokeStyle = (tool === 'eraser') ? "white" : document.getElementById("colorPicker").value;
+        mctx.lineTo(x, y); mctx.stroke();
     } else if (activeObj) {
         activeObj.w = x - startX; activeObj.h = y - startY;
-        render();
+        renderOverlay();
     }
 });
 
-canvas.addEventListener("pointerup", () => {
-    drawing = false; transformMode = null;
-    if (tool === 'pen' || tool === 'eraser') saveToBackground();
-    render();
-});
-
-// Tool logic
-document.querySelectorAll("#toolbar button").forEach(btn => {
-    btn.onclick = () => {
-        if (btn.id === 'clearBtn') { ctx.clearRect(0,0,canvas.width,canvas.height); saveToBackground(); render(); return; }
-        if (btn.id === 'exportBtn') { bake(); window.print(); return; }
-        bake();
-        tool = btn.id.replace("Btn", "");
-        document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
-        btn.classList.add("active");
-        shapeSelect.value = "none";
-    };
-});
-
-shapeSelect.onchange = () => { if (shapeSelect.value !== "none") { bake(); tool = "shape"; } };
+mainCanvas.addEventListener("pointerup", () => { drawing = false; transformMode = null; });
 
 function showTextInput(e) {
-    const fontSize = parseInt(sizePicker.value) + 15;
     textInput.style.display = "block";
-    textInput.style.left = e.pageX + "px"; textInput.style.top = (e.pageY - fontSize/2) + "px";
-    textInput.style.fontSize = fontSize + "px";
+    textToolbar.style.display = "flex";
+    textInput.style.left = e.pageX + "px"; textInput.style.top = e.pageY + "px";
     startX = e.offsetX; startY = e.offsetY;
     setTimeout(() => textInput.focus(), 10);
 }
 
 textInput.onblur = () => {
     if (textInput.value.trim() !== "") {
-        activeObj = new CanvasObject('text', startX, startY, colorPicker.value, parseInt(sizePicker.value), textInput.value);
-        render();
+        activeObj = new CanvasObject('text', startX, startY, document.getElementById("colorPicker").value, 2, textInput.value);
+        renderOverlay();
     }
     textInput.style.display = "none"; textInput.value = "";
+    textToolbar.style.display = "none";
 };
 
-document.addEventListener("keydown", e => {
-    if (e.key === "Delete" && activeObj) { activeObj = null; render(); }
-    if (e.key === "Enter" && textInput.style.display === "block") textInput.blur();
+document.getElementById("boldBtn").onclick = () => { isBold = !isBold; document.getElementById("boldBtn").classList.toggle("active"); };
+
+document.querySelectorAll("#toolbar button").forEach(btn => {
+    btn.onclick = () => {
+        finalize();
+        if (btn.id === 'clearBtn') mctx.clearRect(0,0,mainCanvas.width,mainCanvas.height);
+        else if (btn.id === 'exportBtn') window.print();
+        else {
+            tool = btn.id.replace("Btn", "");
+            document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
+            btn.classList.add("active");
+            document.getElementById("shapeSelect").value = "none";
+        }
+    };
 });
 </script>
 </body>
