@@ -2,40 +2,50 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Teaching Canvas - Pro Stylus + Transform</title>
+<title>Pro Teaching Canvas</title>
 <style>
-  body { margin: 0; background: #1e1e1e; font-family: sans-serif; color: white; }
+  body { margin: 0; background: #1e1e1e; font-family: sans-serif; color: white; overflow: hidden; }
   #toolbar {
     position: fixed; top: 0; left: 0; right: 0;
     background: #2b2b2b; padding: 8px; display: flex; gap: 8px; z-index: 100;
     box-shadow: 0 2px 10px rgba(0,0,0,0.5); align-items: center;
   }
-  @media print {
-    #toolbar, #textInput { display: none !important; }
-    body { background: white; }
-    #canvas-container { margin: 0; height: auto; }
-    canvas { box-shadow: none; margin: 0; border: none; }
-  }
-  button, input { padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px; background: #444; color: white; font-weight: bold; }
+  button, input, select { padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px; background: #444; color: white; font-weight: bold; }
   button.active { background: #007bff; outline: 2px solid yellow; }
-  #canvas-container { margin-top: 60px; padding-bottom: 50px; background: #333; min-height: 100vh; }
-  canvas { background: white; display: block; margin: 0 auto; cursor: crosshair; touch-action: none; }
+  #canvas-container { margin-top: 60px; height: calc(100vh - 60px); overflow: auto; background: #333; }
+  canvas { background: white; display: block; margin: 20px auto; cursor: crosshair; touch-action: none; }
   #textInput { position: absolute; display: none; background: white; border: 1px solid #007bff; color: black; outline: none; z-index: 1000; padding: 2px; }
+  
+  .group { display: flex; align-items: center; gap: 5px; border-right: 1px solid #555; padding-right: 10px; }
 </style>
 </head>
 <body>
 
 <div id="toolbar">
-  <button id="penBtn" class="active">Pen</button>
-  <button id="eraserBtn">Eraser</button>
-  <button id="lineBtn">Line</button>
-  <button id="rectBtn">Rect</button>
-  <button id="circleBtn">Circle</button>
-  <button id="textBtn">Text</button>
-  <button id="selectBtn">Select</button>
-  <div style="width:1px; height:25px; background:#555;"></div>
+  <div class="group">
+    <button id="penBtn" class="active">Pen</button>
+    <button id="eraserBtn">Eraser</button>
+    <button id="textBtn">Text</button>
+    <button id="selectBtn">Select</button>
+  </div>
+
+  <div class="group">
+    <label>Shape:</label>
+    <select id="shapeSelect">
+      <option value="none">None (Drawing)</option>
+      <option value="line">Line</option>
+      <option value="arrow">Arrow</option>
+      <option value="doubleArrow">Double Arrow</option>
+      <option value="rect">Rectangle</option>
+      <option value="circle">Circle</option>
+      <option value="semicircle">Semicircle</option>
+      <option value="star">Star</option>
+    </select>
+  </div>
+
   <input type="color" id="colorPicker" value="#000000">
-  <input type="range" id="sizePicker" min="1" max="50" value="3">
+  <input type="range" id="sizePicker" min="1" max="50" value="3" title="Stroke Size">
+  
   <button id="extendBtn">+ Extend</button>
   <button id="exportBtn" style="background: #28a745;">Export PDF</button>
   <button id="clearBtn" style="background:#8b0000;">Clear</button>
@@ -51,6 +61,7 @@ const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d", { willReadFrequently: true });
 const colorPicker = document.getElementById("colorPicker");
 const sizePicker = document.getElementById("sizePicker");
+const shapeSelect = document.getElementById("shapeSelect");
 const textInput = document.getElementById("textInput");
 
 let tool = "pen";
@@ -59,7 +70,7 @@ let isMovingSelection = false;
 let isResizing = false;
 let startX, startY, lastX, lastY;
 let snapshot, selectionData, selectionRect = null;
-let pasteImage = null; // For handling active transforms
+let pasteImage = null;
 const undoStack = [];
 
 function saveState() {
@@ -74,7 +85,6 @@ function undo() {
     selectionRect = null; 
   }
 }
-
 saveState();
 
 function finalizeSelection() {
@@ -83,12 +93,15 @@ function finalizeSelection() {
             ctx.drawImage(pasteImage, selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
             pasteImage = null;
         } else if (selectionData) {
-            ctx.putImageData(selectionData, selectionRect.x, selectionRect.y);
+            const tempCanvas = document.createElement('canvas');
+            tempCanvas.width = selectionData.width;
+            tempCanvas.height = selectionData.height;
+            tempCanvas.getContext('2d').putImageData(selectionData, 0, 0);
+            ctx.drawImage(tempCanvas, selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
         }
         selectionRect = null;
         selectionData = null;
         saveState();
-        redrawUI();
     }
 }
 
@@ -104,50 +117,48 @@ function finalizeText() {
     textInput.value = "";
 }
 
-// Tool Selection
+// Global button logic
 document.querySelectorAll("#toolbar button").forEach(btn => {
   btn.onclick = () => {
-    if(btn.id === "clearBtn" && confirm("Clear Canvas?")) {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-        saveState(); return;
-    }
-    if(btn.id === "extendBtn") {
-        const temp = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        canvas.height += 1000;
-        ctx.putImageData(temp, 0, 0);
-        saveState(); return;
+    if(btn.id === "clearBtn" && confirm("Clear?")) { ctx.clearRect(0,0,canvas.width,canvas.height); saveState(); return; }
+    if(btn.id === "extendBtn") { 
+        const tmp = ctx.getImageData(0,0,canvas.width,canvas.height); 
+        canvas.height += 1000; ctx.putImageData(tmp,0,0); return; 
     }
     if(btn.id === "exportBtn") { finalizeSelection(); window.print(); return; }
 
-    finalizeSelection();
-    finalizeText();
-
+    finalizeSelection(); finalizeText();
     tool = btn.id.replace("Btn", "");
     document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
   };
 });
 
+shapeSelect.onchange = () => { 
+    if (shapeSelect.value !== "none") {
+        tool = "shape";
+        document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
+    } else {
+        document.getElementById("penBtn").click();
+    }
+};
+
 canvas.addEventListener("pointerdown", e => {
   const x = e.offsetX;
   const y = e.offsetY;
 
-  // Handle Resize Handle (Bottom Right)
+  // Handle existing selection interaction
   if (selectionRect) {
       const handleSize = 15;
       if (x >= selectionRect.x + selectionRect.w - handleSize && x <= selectionRect.x + selectionRect.w + handleSize &&
           y >= selectionRect.y + selectionRect.h - handleSize && y <= selectionRect.y + selectionRect.h + handleSize) {
-          isResizing = true;
-          return;
+          isResizing = true; return;
       }
-      // Handle Move
       if (x >= selectionRect.x && x <= selectionRect.x + selectionRect.w &&
           y >= selectionRect.y && y <= selectionRect.y + selectionRect.h) {
-          isMovingSelection = true;
-          lastX = x; lastY = y;
-          return;
+          isMovingSelection = true; lastX = x; lastY = y; return;
       }
-      // Clicked outside selection
+      // Clicked outside - close selection
       finalizeSelection();
   }
 
@@ -169,42 +180,32 @@ canvas.addEventListener("pointermove", e => {
   const x = e.offsetX;
   const y = e.offsetY;
 
-  if (isResizing && selectionRect) {
+  if (isResizing || isMovingSelection) {
       ctx.putImageData(snapshot, 0, 0);
-      selectionRect.w = Math.max(20, x - selectionRect.x);
-      selectionRect.h = Math.max(20, y - selectionRect.y);
-      redrawUI();
+      if (isResizing) {
+          selectionRect.w = x - selectionRect.x;
+          selectionRect.h = y - selectionRect.y;
+      } else {
+          selectionRect.x += (x - lastX);
+          selectionRect.y += (y - lastY);
+          lastX = x; lastY = y;
+      }
+      renderSelectionPreview();
       return;
-  }
-
-  if (isMovingSelection && selectionRect) {
-    ctx.putImageData(snapshot, 0, 0);
-    selectionRect.x += (x - lastX);
-    selectionRect.y += (y - lastY);
-    lastX = x; lastY = y;
-    redrawUI();
-    return;
   }
 
   if (!drawing) return;
 
-  if (tool === "pen") {
-    ctx.lineTo(x, y); ctx.stroke();
-  } else if (tool === "eraser") {
-    ctx.globalCompositeOperation = "destination-out";
-    ctx.lineTo(x, y); ctx.stroke();
-    ctx.globalCompositeOperation = "source-over";
-  } else {
+  if (tool === "pen") { ctx.lineTo(x, y); ctx.stroke(); }
+  else if (tool === "eraser") { 
+      ctx.globalCompositeOperation = "destination-out"; 
+      ctx.lineTo(x, y); ctx.stroke(); 
+      ctx.globalCompositeOperation = "source-over"; 
+  }
+  else {
     ctx.putImageData(snapshot, 0, 0);
-    if (tool === "line") {
-      ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(x, y); ctx.stroke();
-    } else if (tool === "rect") {
-      ctx.strokeRect(startX, startY, x - startX, y - startY);
-    } else if (tool === "circle") {
-      ctx.beginPath(); ctx.arc(startX, startY, Math.hypot(x-startX, y-startY), 0, Math.PI*2); ctx.stroke();
-    } else if (tool === "select") {
-      drawSelectionDashes(startX, startY, x - startX, y - startY);
-    }
+    const type = (tool === "shape") ? shapeSelect.value : tool;
+    drawShape(type, startX, startY, x, y);
   }
 });
 
@@ -212,72 +213,90 @@ canvas.addEventListener("pointerup", e => {
   if (tool === "select" && drawing) {
     const w = e.offsetX - startX;
     const h = e.offsetY - startY;
-    if (Math.abs(w) > 5 && Math.abs(h) > 5) {
+    if (Math.abs(w) > 5) {
       selectionRect = { x: startX, y: startY, w, h };
       selectionData = ctx.getImageData(startX, startY, w, h);
       ctx.clearRect(startX, startY, w, h);
       snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      redrawUI();
+      renderSelectionPreview();
     }
   }
   drawing = false; isMovingSelection = false; isResizing = false;
   if (tool !== "select" && !selectionRect) saveState();
 });
 
-function redrawUI() {
+function drawShape(type, sx, sy, ex, ey) {
+    ctx.beginPath();
+    const w = ex - sx;
+    const h = ey - sy;
+
+    if (type === "line") {
+        ctx.moveTo(sx, sy); ctx.lineTo(ex, ey);
+    } else if (type === "rect") {
+        ctx.strokeRect(sx, sy, w, h);
+    } else if (type === "circle") {
+        ctx.arc(sx, sy, Math.hypot(w, h), 0, Math.PI*2);
+    } else if (type === "semicircle") {
+        ctx.arc(sx, sy, Math.abs(w), 0, Math.PI, false);
+    } else if (type === "arrow" || type === "doubleArrow") {
+        drawArrow(sx, sy, ex, ey, type === "doubleArrow");
+    } else if (type === "star") {
+        drawStar(sx, sy, 5, Math.hypot(w, h), Math.hypot(w, h)/2.5);
+    } else if (type === "select") {
+        drawSelectionDashes(sx, sy, w, h);
+    }
+    ctx.stroke();
+}
+
+function drawArrow(x1, y1, x2, y2, double) {
+    const headlen = 15;
+    const angle = Math.atan2(y2 - y1, x2 - x1);
+    ctx.moveTo(x1, y1); ctx.lineTo(x2, y2);
+    ctx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+    ctx.moveTo(x2, y2);
+    ctx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
+    if (double) {
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x1 + headlen * Math.cos(angle - Math.PI / 6), y1 + headlen * Math.sin(angle - Math.PI / 6));
+        ctx.moveTo(x1, y1);
+        ctx.lineTo(x1 + headlen * Math.cos(angle + Math.PI / 6), y1 + headlen * Math.sin(angle + Math.PI / 6));
+    }
+}
+
+function drawStar(cx, cy, spikes, outerRadius, innerRadius) {
+    let rot = Math.PI / 2 * 3; let x = cx; let y = cy; let step = Math.PI / spikes;
+    ctx.moveTo(cx, cy - outerRadius);
+    for (let i = 0; i < spikes; i++) {
+        x = cx + Math.cos(rot) * outerRadius; y = cy + Math.sin(rot) * outerRadius;
+        ctx.lineTo(x, y); rot += step;
+        x = cx + Math.cos(rot) * innerRadius; y = cy + Math.sin(rot) * innerRadius;
+        ctx.lineTo(x, y); rot += step;
+    }
+    ctx.lineTo(cx, cy - outerRadius); ctx.closePath();
+}
+
+function renderSelectionPreview() {
     if (!selectionRect) return;
-    if (pasteImage) {
-        ctx.drawImage(pasteImage, selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
-    } else if (selectionData) {
-        // Draw selection data scaled if resized
-        const tempCanvas = document.createElement('canvas');
-        tempCanvas.width = selectionData.width;
-        tempCanvas.height = selectionData.height;
-        tempCanvas.getContext('2d').putImageData(selectionData, 0, 0);
-        ctx.drawImage(tempCanvas, selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
+    if (pasteImage) ctx.drawImage(pasteImage, selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
+    else if (selectionData) {
+        const c = document.createElement('canvas'); c.width = selectionData.width; c.height = selectionData.height;
+        c.getContext('2d').putImageData(selectionData, 0, 0);
+        ctx.drawImage(c, selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
     }
     drawSelectionDashes(selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
 }
 
 function drawSelectionDashes(x, y, w, h) {
-  ctx.setLineDash([5, 5]);
-  ctx.strokeStyle = "#007bff";
-  ctx.lineWidth = 1;
+  ctx.setLineDash([5, 5]); ctx.strokeStyle = "#007bff"; ctx.lineWidth = 1;
   ctx.strokeRect(x, y, w, h);
-  // Draw resize handle
-  ctx.fillStyle = "#007bff";
-  ctx.fillRect(x + w - 5, y + h - 5, 10, 10);
+  ctx.fillStyle = "#007bff"; ctx.fillRect(x + w - 5, y + h - 5, 10, 10);
   ctx.setLineDash([]);
 }
 
-/* =========================
-   PASTE & TEXT
-========================= */
-window.addEventListener('paste', e => {
-  const items = e.clipboardData.items;
-  for (let item of items) {
-    if (item.type.indexOf("image") !== -1) {
-      const blob = item.getAsFile();
-      const img = new Image();
-      img.onload = () => {
-        finalizeSelection();
-        snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-        pasteImage = img;
-        selectionRect = { x: 50, y: 50, w: img.width, h: img.height };
-        redrawUI();
-      };
-      img.src = URL.createObjectURL(blob);
-    }
-  }
-});
-
 function showTextInput(e) {
   const fontSize = parseInt(sizePicker.value) + 15;
-  textInput.style.display = "block";
-  textInput.style.left = e.pageX + "px";
-  textInput.style.top = (e.pageY - fontSize/2) + "px";
-  textInput.style.fontSize = fontSize + "px";
-  textInput.style.color = colorPicker.value;
+  textInput.style.display = "block"; textInput.style.left = e.pageX + "px"; textInput.style.top = (e.pageY - fontSize/2) + "px";
+  textInput.style.fontSize = fontSize + "px"; textInput.style.color = colorPicker.value;
   startX = e.offsetX; startY = e.offsetY;
   setTimeout(() => textInput.focus(), 10);
 }
@@ -285,11 +304,23 @@ function showTextInput(e) {
 textInput.onblur = () => finalizeText();
 textInput.onkeydown = e => { if (e.key === "Enter") finalizeText(); };
 
-document.addEventListener("keydown", e => {
-  if (e.key === "Delete" && selectionRect) {
-    ctx.putImageData(snapshot, 0, 0);
-    selectionRect = null; pasteImage = null; saveState();
+window.addEventListener('paste', e => {
+  const items = e.clipboardData.items;
+  for (let item of items) {
+    if (item.type.indexOf("image") !== -1) {
+      const blob = item.getAsFile(); const img = new Image();
+      img.onload = () => {
+        finalizeSelection(); snapshot = ctx.getImageData(0,0,canvas.width,canvas.height);
+        pasteImage = img; selectionRect = { x: 50, y: 50, w: img.width, h: img.height };
+        renderSelectionPreview();
+      };
+      img.src = URL.createObjectURL(blob);
+    }
   }
+});
+
+document.addEventListener("keydown", e => {
+  if (e.key === "Delete" && selectionRect) { ctx.putImageData(snapshot, 0, 0); selectionRect = null; saveState(); }
   if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
 });
 </script>
