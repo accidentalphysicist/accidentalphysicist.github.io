@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Teaching Canvas - Object Oriented</title>
+<title>Pro Teaching Canvas - Object Layering</title>
 <style>
   body { margin: 0; background: #1e1e1e; font-family: sans-serif; color: white; overflow: hidden; }
   #toolbar {
@@ -14,7 +14,7 @@
   button.active { background: #007bff; outline: 2px solid yellow; }
   #canvas-container { margin-top: 60px; height: calc(100vh - 60px); overflow: auto; background: #333; position: relative; }
   canvas { background: white; display: block; margin: 20px auto; cursor: crosshair; touch-action: none; }
-  #textInput { position: absolute; display: none; background: white; border: 1px solid #007bff; color: black; outline: none; z-index: 1000; padding: 2px; }
+  #textInput { position: absolute; display: none; background: white; border: 1px solid #007bff; color: black; outline: none; z-index: 1000; }
   .group { display: flex; align-items: center; gap: 5px; border-right: 1px solid #555; padding-right: 10px; }
 </style>
 </head>
@@ -25,6 +25,7 @@
     <button id="penBtn" class="active">Pen</button>
     <button id="eraserBtn">Eraser</button>
     <button id="textBtn">Text</button>
+    <button id="selectBtn">Select</button>
   </div>
   <div class="group">
     <select id="shapeSelect">
@@ -33,12 +34,10 @@
       <option value="arrow">Arrow</option>
       <option value="rect">Rectangle</option>
       <option value="circle">Circle</option>
-      <option value="star">Star</option>
     </select>
   </div>
   <input type="color" id="colorPicker" value="#000000">
   <input type="range" id="sizePicker" min="1" max="50" value="3">
-  <button id="extendBtn">+ Extend</button>
   <button id="exportBtn" style="background: #28a745;">Export PDF</button>
   <button id="clearBtn" style="background:#8b0000;">Clear</button>
 </div>
@@ -50,7 +49,7 @@
 
 <script>
 const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d", { willReadFrequently: true });
+const ctx = canvas.getContext("2d");
 const colorPicker = document.getElementById("colorPicker");
 const sizePicker = document.getElementById("sizePicker");
 const shapeSelect = document.getElementById("shapeSelect");
@@ -58,125 +57,114 @@ const textInput = document.getElementById("textInput");
 
 let tool = "pen";
 let drawing = false;
-let activeObj = null; // Currently selected object
-let transformMode = null; // 'move', 'scale', 'rotate'
+let activeObj = null; 
+let transformMode = null; 
 let startX, startY, lastX, lastY;
-let snapshot; // Background (static drawings)
-const undoStack = [];
 
-function saveState() {
-    if (undoStack.length >= 30) undoStack.shift();
-    undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
+// This holds the permanent pixel data (Pen/Eraser/Baked Objects)
+let bgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
+
+function saveToBackground() {
+    bgData = ctx.getImageData(0, 0, canvas.width, canvas.height);
 }
 
-function undo() {
-    if (undoStack.length > 1) {
-        undoStack.pop();
-        ctx.putImageData(undoStack[undoStack.length - 1], 0, 0);
+function bake() {
+    if (activeObj) {
+        // Draw the object permanently to the canvas
+        activeObj.draw(ctx, false); 
         activeObj = null;
+        saveToBackground();
+        render();
     }
 }
-saveState();
 
-// --- OBJECT CLASSES ---
+function render() {
+    // 1. Clear everything
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    // 2. Put back the permanent background
+    ctx.putImageData(bgData, 0, 0);
+    // 3. Draw the active object on top (with UI if active)
+    if (activeObj) {
+        activeObj.draw(ctx, true);
+    }
+}
+
 class CanvasObject {
-    constructor(type, x, y, color, size) {
-        this.type = type; this.x = x; this.y = y; this.w = 0; this.h = 0;
-        this.color = color; this.size = size; this.rotation = 0;
-        this.content = null; // For images or text
+    constructor(type, x, y, color, size, content = null) {
+        this.type = type; this.x = x; this.y = y; this.w = 5; this.h = 5;
+        this.color = color; this.size = size; this.content = content;
     }
+    draw(tCtx, showUI) {
+        tCtx.save();
+        tCtx.strokeStyle = this.color;
+        tCtx.fillStyle = this.color;
+        tCtx.lineWidth = this.size;
 
-    render(targetCtx) {
-        targetCtx.save();
-        targetCtx.translate(this.x + this.w/2, this.y + this.h/2);
-        targetCtx.rotate(this.rotation);
-        targetCtx.translate(-(this.x + this.w/2), -(this.y + this.h/2));
-        
-        targetCtx.strokeStyle = this.color;
-        targetCtx.fillStyle = this.color;
-        targetCtx.lineWidth = this.size;
-
-        if (this.type === 'image' && this.content) {
-            targetCtx.drawImage(this.content, this.x, this.y, this.w, this.h);
-        } else if (this.type === 'text') {
-            targetCtx.font = `${this.size + 15}px sans-serif`;
-            targetCtx.textBaseline = "top";
-            targetCtx.fillText(this.content, this.x, this.y);
-        } else {
-            this.drawShape(targetCtx);
+        if (this.type === 'text') {
+            tCtx.font = `${this.size + 15}px sans-serif`;
+            tCtx.textBaseline = "top";
+            tCtx.fillText(this.content, this.x, this.y);
+            // Update bounds for text based on measurement
+            let metrics = tCtx.measureText(this.content);
+            this.w = metrics.width;
+            this.h = this.size + 15;
+        } else if (this.type === 'rect') {
+            tCtx.strokeRect(this.x, this.y, this.w, this.h);
+        } else if (this.type === 'circle') {
+            tCtx.beginPath();
+            tCtx.arc(this.x + this.w/2, this.y + this.h/2, Math.abs(this.w/2), 0, Math.PI*2);
+            tCtx.stroke();
+        } else if (this.type === 'line' || this.type === 'arrow') {
+            tCtx.beginPath();
+            tCtx.moveTo(this.x, this.y);
+            tCtx.lineTo(this.x + this.w, this.y + this.h);
+            if (this.type === 'arrow') drawArrowHead(tCtx, this.x, this.y, this.x + this.w, this.y + this.h);
+            tCtx.stroke();
         }
-        targetCtx.restore();
-    }
 
-    drawShape(tCtx) {
-        tCtx.beginPath();
-        if (this.type === 'line') { tCtx.moveTo(this.x, this.y); tCtx.lineTo(this.x+this.w, this.y+this.h); }
-        else if (this.type === 'arrow') { drawArrow(tCtx, this.x, this.y, this.x+this.w, this.y+this.h); }
-        else if (this.type === 'rect') { tCtx.strokeRect(this.x, this.y, this.w, this.h); }
-        else if (this.type === 'circle') { tCtx.arc(this.x+this.w/2, this.y+this.h/2, Math.abs(this.w/2), 0, Math.PI*2); }
-        else if (this.type === 'star') { drawStar(tCtx, this.x+this.w/2, this.y+this.h/2, 5, this.w/2, this.w/4); }
-        tCtx.stroke();
-    }
-}
-
-// --- CORE LOGIC ---
-function bakeActiveObject() {
-    if (activeObj) {
-        activeObj.render(ctx);
-        activeObj = null;
-        saveState();
+        if (showUI) {
+            tCtx.setLineDash([5, 5]);
+            tCtx.strokeStyle = "#007bff";
+            tCtx.lineWidth = 1;
+            tCtx.strokeRect(this.x - 4, this.y - 4, this.w + 8, this.h + 8);
+            tCtx.setLineDash([]);
+            tCtx.fillStyle = "#007bff";
+            tCtx.fillRect(this.x + this.w, this.y + this.h, 10, 10); // Scale handle
+        }
+        tCtx.restore();
     }
 }
 
-function refreshCanvas() {
-    ctx.putImageData(snapshot, 0, 0);
-    if (activeObj) {
-        activeObj.render(ctx);
-        drawSelectionUI(activeObj);
-    }
+function drawArrowHead(tCtx, x1, y1, x2, y2) {
+    const headlen = 15; const angle = Math.atan2(y2 - y1, x2 - x1);
+    tCtx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
+    tCtx.moveTo(x2, y2);
+    tCtx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
 }
 
-function drawSelectionUI(obj) {
-    ctx.setLineDash([5, 5]);
-    ctx.strokeStyle = "#007bff";
-    ctx.lineWidth = 1;
-    ctx.strokeRect(obj.x - 5, obj.y - 5, obj.w + 10, obj.h + 10);
-    ctx.setLineDash([]);
-    // Scale Handle
-    ctx.fillStyle = "#007bff";
-    ctx.fillRect(obj.x + obj.w + 2, obj.y + obj.h + 2, 10, 10);
-    // Rotate Handle
-    ctx.beginPath();
-    ctx.arc(obj.x + obj.w/2, obj.y - 20, 6, 0, Math.PI*2);
-    ctx.fill();
-}
-
-// --- EVENT LISTENERS ---
+// Interactions
 canvas.addEventListener("pointerdown", e => {
     const x = e.offsetX, y = e.offsetY;
 
     if (activeObj) {
-        // 1. Check Rotation Handle
-        const rotX = activeObj.x + activeObj.w/2, rotY = activeObj.y - 20;
-        if (Math.hypot(x - rotX, y - rotY) < 10) { transformMode = 'rotate'; return; }
-        // 2. Check Scale Handle
-        if (x > activeObj.x + activeObj.w && x < activeObj.x + activeObj.w + 15 && 
-            y > activeObj.y + activeObj.h && y < activeObj.y + activeObj.h + 15) {
-            transformMode = 'scale'; return;
+        // Check scale handle
+        if (x > activeObj.x + activeObj.w && x < activeObj.x + activeObj.w + 20 &&
+            y > activeObj.y + activeObj.h && y < activeObj.y + activeObj.h + 20) {
+            transformMode = "scale"; return;
         }
-        // 3. Check Move
+        // Check move
         if (x > activeObj.x && x < activeObj.x + activeObj.w && y > activeObj.y && y < activeObj.y + activeObj.h) {
-            transformMode = 'move'; lastX = x; lastY = y; return;
+            transformMode = "move"; lastX = x; lastY = y; return;
         }
-        // 4. Clicked away
-        bakeActiveObject();
+        bake(); // Clicked away
     }
 
-    if (tool === 'text') { showTextInput(e); return; }
+    if (tool === 'text') { 
+        showTextInput(e); return; 
+    }
 
     drawing = true;
     startX = x; startY = y;
-    snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
 
     if (tool === 'pen' || tool === 'eraser') {
         ctx.beginPath(); ctx.moveTo(x, y);
@@ -187,91 +175,46 @@ canvas.addEventListener("pointerdown", e => {
 
 canvas.addEventListener("pointermove", e => {
     const x = e.offsetX, y = e.offsetY;
+
     if (transformMode && activeObj) {
-        if (transformMode === 'move') {
+        if (transformMode === "scale") {
+            activeObj.w = x - activeObj.x; activeObj.h = y - activeObj.y;
+        } else {
             activeObj.x += (x - lastX); activeObj.y += (y - lastY);
             lastX = x; lastY = y;
-        } else if (transformMode === 'scale') {
-            activeObj.w = x - activeObj.x; activeObj.h = y - activeObj.y;
-        } else if (transformMode === 'rotate') {
-            activeObj.rotation = Math.atan2(y - (activeObj.y + activeObj.h/2), x - (activeObj.x + activeObj.w/2)) + Math.PI/2;
         }
-        refreshCanvas(); return;
+        render(); return;
     }
 
     if (!drawing) return;
-    if (tool === 'pen') { ctx.strokeStyle = colorPicker.value; ctx.lineWidth = sizePicker.value; ctx.lineTo(x, y); ctx.stroke(); }
-    else if (tool === 'eraser') { ctx.globalCompositeOperation = "destination-out"; ctx.lineWidth = sizePicker.value; ctx.lineTo(x, y); ctx.stroke(); ctx.globalCompositeOperation = "source-over"; }
-    else if (activeObj) {
+
+    if (tool === 'pen' || tool === 'eraser') {
+        ctx.lineWidth = sizePicker.value;
+        ctx.lineCap = "round";
+        ctx.strokeStyle = (tool === 'eraser') ? "white" : colorPicker.value;
+        if (tool === 'eraser') {
+            // Manual erase to background color instead of destination-out to prevent transparency issues in PDF
+            ctx.strokeStyle = "white"; 
+        }
+        ctx.lineTo(x, y); ctx.stroke();
+    } else if (activeObj) {
         activeObj.w = x - startX; activeObj.h = y - startY;
-        refreshCanvas();
+        render();
     }
 });
 
 canvas.addEventListener("pointerup", () => {
     drawing = false; transformMode = null;
-    if (tool === 'pen' || tool === 'eraser') saveState();
-    else if (activeObj) refreshCanvas();
+    if (tool === 'pen' || tool === 'eraser') saveToBackground();
+    render();
 });
 
-// --- HELPERS ---
-function showTextInput(e) {
-    const fontSize = parseInt(sizePicker.value) + 15;
-    textInput.style.display = "block";
-    textInput.style.left = e.pageX + "px"; textInput.style.top = (e.pageY - fontSize/2) + "px";
-    textInput.style.fontSize = fontSize + "px"; textInput.style.color = colorPicker.value;
-    startX = e.offsetX; startY = e.offsetY;
-    setTimeout(() => textInput.focus(), 10);
-}
-
-textInput.onblur = () => {
-    if (textInput.value.trim() !== "") {
-        activeObj = new CanvasObject('text', startX, startY, colorPicker.value, parseInt(sizePicker.value));
-        activeObj.content = textInput.value;
-        activeObj.w = ctx.measureText(textInput.value).width; activeObj.h = parseInt(sizePicker.value) + 15;
-        refreshCanvas();
-    }
-    textInput.style.display = "none"; textInput.value = "";
-};
-
-window.addEventListener('paste', e => {
-    const item = e.clipboardData.items[0];
-    if (item.type.indexOf("image") !== -1) {
-        const img = new Image();
-        img.onload = () => {
-            bakeActiveObject();
-            snapshot = ctx.getImageData(0,0,canvas.width,canvas.height);
-            activeObj = new CanvasObject('image', 50, 50, null, 0);
-            activeObj.content = img; activeObj.w = img.width/2; activeObj.h = img.height/2;
-            refreshCanvas();
-        };
-        img.src = URL.createObjectURL(item.getAsFile());
-    }
-});
-
-function drawArrow(tCtx, x1, y1, x2, y2) {
-    const headlen = 15; const angle = Math.atan2(y2 - y1, x2 - x1);
-    tCtx.moveTo(x1, y1); tCtx.lineTo(x2, y2);
-    tCtx.lineTo(x2 - headlen * Math.cos(angle - Math.PI / 6), y2 - headlen * Math.sin(angle - Math.PI / 6));
-    tCtx.moveTo(x2, y2);
-    tCtx.lineTo(x2 - headlen * Math.cos(angle + Math.PI / 6), y2 - headlen * Math.sin(angle + Math.PI / 6));
-}
-
-function drawStar(tCtx, cx, cy, spikes, outerRadius, innerRadius) {
-    let rot = Math.PI / 2 * 3; let x = cx; let y = cy; let step = Math.PI / spikes;
-    tCtx.moveTo(cx, cy - outerRadius);
-    for (let i = 0; i < spikes; i++) {
-        x = cx + Math.cos(rot) * outerRadius; y = cy + Math.sin(rot) * outerRadius; tCtx.lineTo(x, y); rot += step;
-        x = cx + Math.cos(rot) * innerRadius; y = cy + Math.sin(rot) * innerRadius; tCtx.lineTo(x, y); rot += step;
-    }
-    tCtx.closePath();
-}
-
-// Tool switching
+// Tool logic
 document.querySelectorAll("#toolbar button").forEach(btn => {
     btn.onclick = () => {
-        if (btn.id === 'clearBtn') { ctx.clearRect(0,0,canvas.width,canvas.height); saveState(); return; }
-        bakeActiveObject();
+        if (btn.id === 'clearBtn') { ctx.clearRect(0,0,canvas.width,canvas.height); saveToBackground(); render(); return; }
+        if (btn.id === 'exportBtn') { bake(); window.print(); return; }
+        bake();
         tool = btn.id.replace("Btn", "");
         document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
         btn.classList.add("active");
@@ -279,11 +222,28 @@ document.querySelectorAll("#toolbar button").forEach(btn => {
     };
 });
 
-shapeSelect.onchange = () => { if (shapeSelect.value !== "none") { bakeActiveObject(); tool = "shape"; } };
+shapeSelect.onchange = () => { if (shapeSelect.value !== "none") { bake(); tool = "shape"; } };
+
+function showTextInput(e) {
+    const fontSize = parseInt(sizePicker.value) + 15;
+    textInput.style.display = "block";
+    textInput.style.left = e.pageX + "px"; textInput.style.top = (e.pageY - fontSize/2) + "px";
+    textInput.style.fontSize = fontSize + "px";
+    startX = e.offsetX; startY = e.offsetY;
+    setTimeout(() => textInput.focus(), 10);
+}
+
+textInput.onblur = () => {
+    if (textInput.value.trim() !== "") {
+        activeObj = new CanvasObject('text', startX, startY, colorPicker.value, parseInt(sizePicker.value), textInput.value);
+        render();
+    }
+    textInput.style.display = "none"; textInput.value = "";
+};
 
 document.addEventListener("keydown", e => {
-    if (e.key === "Delete" && activeObj) { activeObj = null; refreshCanvas(); }
-    if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
+    if (e.key === "Delete" && activeObj) { activeObj = null; render(); }
+    if (e.key === "Enter" && textInput.style.display === "block") textInput.blur();
 });
 </script>
 </body>
