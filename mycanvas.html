@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Teaching Canvas - Stylus Optimized</title>
+<title>v2Teaching Canvas - Pro Stylus + Paste</title>
 <style>
   body { margin: 0; background: #1e1e1e; font-family: sans-serif; color: white; }
   #toolbar {
     position: fixed; top: 0; left: 0; right: 0;
     background: #2b2b2b; padding: 8px; display: flex; gap: 8px; z-index: 100;
-    box-shadow: 0 2px 10px rgba(0,0,0,0.5); align-items: center;
+    box-shadow: 0 2px 10px rgba(0,0,0,0.5); align-items: center; flex-wrap: wrap;
   }
   @media print {
     #toolbar, #textInput { display: none !important; }
@@ -18,9 +18,9 @@
   }
   button, input { padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px; background: #444; color: white; font-weight: bold; }
   button.active { background: #007bff; outline: 2px solid yellow; }
-  #canvas-container { margin-top: 60px; padding-bottom: 50px; background: #333; min-height: 100vh; }
+  #canvas-container { margin-top: 80px; padding-bottom: 50px; background: #333; min-height: 100vh; }
   canvas { background: white; display: block; margin: 0 auto; cursor: crosshair; touch-action: none; }
-  #textInput { position: absolute; display: none; background: transparent; border: 1px dashed #007bff; outline: none; }
+  #textInput { position: absolute; display: none; background: white; border: 1px solid #007bff; color: black; outline: none; z-index: 1000; }
 </style>
 </head>
 <body>
@@ -86,15 +86,13 @@ document.querySelectorAll("#toolbar button").forEach(btn => {
         const temp = ctx.getImageData(0, 0, canvas.width, canvas.height);
         canvas.height += 1000;
         ctx.putImageData(temp, 0, 0);
+        saveState();
         return;
     }
     if(btn.id === "exportBtn") { window.print(); return; }
 
-    // If switching AWAY from select, bake the current selection into the canvas
-    if (tool === "select" && selectionRect) {
-        ctx.putImageData(selectionData, selectionRect.x, selectionRect.y);
-        selectionRect = null;
-    }
+    // Finalize selection if switching tools
+    if (selectionRect) finalizeSelection();
 
     tool = btn.id.replace("Btn", "");
     document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
@@ -103,11 +101,17 @@ document.querySelectorAll("#toolbar button").forEach(btn => {
   };
 });
 
+function finalizeSelection() {
+    if (!selectionRect) return;
+    ctx.putImageData(selectionData, selectionRect.x, selectionRect.y);
+    selectionRect = null;
+    saveState();
+}
+
 canvas.addEventListener("pointerdown", e => {
   const x = e.offsetX;
   const y = e.offsetY;
 
-  // Selection Check
   if (tool === "select" && selectionRect && 
       x >= selectionRect.x && x <= selectionRect.x + selectionRect.w &&
       y >= selectionRect.y && y <= selectionRect.y + selectionRect.h) {
@@ -117,13 +121,19 @@ canvas.addEventListener("pointerdown", e => {
     return;
   }
 
-  drawing = true;
-  startX = x;
-  startY = y;
-  lastX = x;
-  lastY = y;
+  // Click away from selection to bake it
+  if (selectionRect && tool === "select") {
+      finalizeSelection();
+  }
 
-  // Capture clean snapshot
+  if (tool === "text") {
+    showTextInput(e);
+    return;
+  }
+
+  drawing = true;
+  startX = x; startY = y;
+  lastX = x; lastY = y;
   snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
   
   ctx.strokeStyle = colorPicker.value;
@@ -131,7 +141,6 @@ canvas.addEventListener("pointerdown", e => {
   ctx.lineCap = "round";
   ctx.lineJoin = "round";
   
-  // CRITICAL: Start a new path immediately for Pen/Eraser
   if (tool === 'pen' || tool === 'eraser') {
     ctx.beginPath();
     ctx.moveTo(x, y);
@@ -143,28 +152,24 @@ canvas.addEventListener("pointermove", e => {
   const y = e.offsetY;
 
   if (isMovingSelection) {
-    ctx.putImageData(snapshot, 0, 0); // Background without the cutout
+    ctx.putImageData(snapshot, 0, 0);
     selectionRect.x += (x - lastX);
     selectionRect.y += (y - lastY);
     ctx.putImageData(selectionData, selectionRect.x, selectionRect.y);
     drawSelectionDashes(selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
-    lastX = x;
-    lastY = y;
+    lastX = x; lastY = y;
     return;
   }
 
   if (!drawing) return;
 
   if (tool === "pen") {
-    ctx.lineTo(x, y);
-    ctx.stroke();
+    ctx.lineTo(x, y); ctx.stroke();
   } else if (tool === "eraser") {
     ctx.globalCompositeOperation = "destination-out";
-    ctx.lineTo(x, y);
-    ctx.stroke();
+    ctx.lineTo(x, y); ctx.stroke();
     ctx.globalCompositeOperation = "source-over";
-  } else if (tool === "line" || tool === "rect" || tool === "circle" || tool === "select") {
-    // For shapes, restore background so we don't see trails
+  } else {
     ctx.putImageData(snapshot, 0, 0);
     if (tool === "line") {
       ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(x, y); ctx.stroke();
@@ -183,24 +188,46 @@ canvas.addEventListener("pointerup", e => {
     const w = e.offsetX - startX;
     const h = e.offsetY - startY;
     if (Math.abs(w) > 5 && Math.abs(h) > 5) {
-      // 1. Get image data from current canvas
-      selectionData = ctx.getImageData(startX, startY, w, h);
-      // 2. Clear that area on the canvas
-      ctx.clearRect(startX, startY, w, h);
-      // 3. Update the global snapshot to include the "hole"
-      snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
-      // 4. Define the active selection rectangle
       selectionRect = { x: startX, y: startY, w, h };
-      // 5. Visually show it again
+      selectionData = ctx.getImageData(startX, startY, w, h);
+      ctx.clearRect(startX, startY, w, h);
+      snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
       ctx.putImageData(selectionData, startX, startY);
       drawSelectionDashes(startX, startY, w, h);
     }
   }
-  
   if (drawing || isMovingSelection) {
     drawing = false;
     isMovingSelection = false;
     saveState();
+  }
+});
+
+/* =========================
+   CLIPBOARD (PASTE) SUPPORT
+========================= */
+window.addEventListener('paste', e => {
+  const items = e.clipboardData.items;
+  for (let item of items) {
+    if (item.type.indexOf("image") !== -1) {
+      const blob = item.getAsFile();
+      const img = new Image();
+      img.onload = () => {
+        // Place image and automatically select it
+        ctx.drawImage(img, 20, 20);
+        selectionRect = { x: 20, y: 20, w: img.width, h: img.height };
+        selectionData = ctx.getImageData(20, 20, img.width, img.height);
+        snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height); // snapshot without the image for moving
+        drawSelectionDashes(20, 20, img.width, img.height);
+        saveState();
+      };
+      img.src = URL.createObjectURL(blob);
+    } else if (item.type === "text/plain") {
+        item.getAsString(text => {
+            textInput.value = text;
+            showTextInput({ pageX: 100, pageY: 100, offsetX: 100, offsetY: 100 });
+        });
+    }
   }
 });
 
@@ -217,9 +244,8 @@ function showTextInput(e) {
   textInput.style.display = "block";
   textInput.style.left = e.pageX + "px";
   textInput.style.top = (e.pageY - fontSize/2) + "px";
-  textInput.style.color = colorPicker.value;
   textInput.style.fontSize = fontSize + "px";
-  textInput.value = "";
+  textInput.style.color = colorPicker.value;
   startX = e.offsetX; startY = e.offsetY;
   setTimeout(() => textInput.focus(), 10);
 }
@@ -237,7 +263,7 @@ textInput.onkeydown = e => {
 
 document.addEventListener("keydown", e => {
   if (e.key === "Delete" && selectionRect) {
-    ctx.putImageData(snapshot, 0, 0); // Confirm background with the hole
+    ctx.putImageData(snapshot, 0, 0); 
     selectionRect = null;
     saveState();
   }
