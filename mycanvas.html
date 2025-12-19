@@ -2,21 +2,30 @@
 <html lang="en">
 <head>
 <meta charset="UTF-8">
-<title>Teaching Canvas - Pro</title>
+<title>Teaching Canvas - Pro Max</title>
 <style>
-  body { margin: 0; background: #1e1e1e; font-family: sans-serif; color: white; overflow: hidden; }
+  body { margin: 0; background: #1e1e1e; font-family: sans-serif; color: white; }
+  
   #toolbar {
     position: fixed; top: 0; left: 0; right: 0;
-    background: #2b2b2b; padding: 8px; display: flex; gap: 8px; z-index: 10;
+    background: #2b2b2b; padding: 8px; display: flex; gap: 8px; z-index: 100;
     box-shadow: 0 2px 10px rgba(0,0,0,0.5); align-items: center;
+    flex-wrap: wrap;
   }
-  button, input { padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px; }
-  button { background: #444; color: white; font-weight: bold; }
+
+  /* Print Styles: Hides UI and scales canvas when exporting PDF */
+  @media print {
+    #toolbar, #textInput, .no-print { display: none !important; }
+    body { background: white; }
+    #canvas-container { margin: 0; height: auto; overflow: visible; }
+    canvas { box-shadow: none; margin: 0; }
+  }
+
+  button, input { padding: 6px 12px; cursor: pointer; border: none; border-radius: 4px; background: #444; color: white; font-weight: bold; }
   button.active { background: #007bff; outline: 2px solid yellow; }
-  #canvas-container { margin-top: 50px; height: calc(100vh - 50px); overflow: auto; background: #333; }
-  canvas { background: white; display: block; margin: 20px auto; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
+  #canvas-container { margin-top: 80px; padding-bottom: 50px; background: #333; min-height: 100vh; }
+  canvas { background: white; display: block; margin: 0 auto; cursor: crosshair; box-shadow: 0 0 20px rgba(0,0,0,0.5); }
   
-  /* Floating text input styling */
   #textInput {
     position: absolute; display: none; background: transparent; border: 1px dashed #007bff;
     outline: none; padding: 0; margin: 0; font-family: sans-serif; line-height: 1;
@@ -32,14 +41,22 @@
   <button id="rectBtn">Rect</button>
   <button id="circleBtn">Circle</button>
   <button id="textBtn">Text</button>
-  <div style="width:1px; height:25px; background:#555; margin:0 5px;"></div>
+  <button id="selectBtn">Select</button>
+  
+  <div style="width:1px; height:25px; background:#555;"></div>
+  
   <input type="color" id="colorPicker" value="#000000">
   <input type="range" id="sizePicker" min="1" max="50" value="3">
-  <button id="clearBtn" style="margin-left:auto; background:#8b0000;">Clear All</button>
+  
+  <div style="width:1px; height:25px; background:#555;"></div>
+  
+  <button id="extendBtn" title="Add 1000px to height">+ Extend</button>
+  <button id="exportBtn" style="background: #28a745;">Export PDF</button>
+  <button id="clearBtn" style="background:#8b0000;">Clear</button>
 </div>
 
 <div id="canvas-container">
-  <canvas id="canvas" width="1200" height="2000"></canvas>
+  <canvas id="canvas" width="1200" height="1500"></canvas>
   <input type="text" id="textInput">
 </div>
 
@@ -50,17 +67,15 @@ const colorPicker = document.getElementById("colorPicker");
 const sizePicker = document.getElementById("sizePicker");
 const textInput = document.getElementById("textInput");
 
-ctx.lineCap = "round";
-ctx.lineJoin = "round";
-
 let tool = "pen";
 let drawing = false;
 let startX, startY;
-let snapshot;
+let snapshot, selectionData, selectionRect;
+let isMovingSelection = false;
 const undoStack = [];
 
 function saveState() {
-  if (undoStack.length >= 50) undoStack.shift();
+  if (undoStack.length >= 30) undoStack.shift();
   undoStack.push(ctx.getImageData(0, 0, canvas.width, canvas.height));
 }
 
@@ -73,111 +88,145 @@ function undo() {
 
 saveState();
 
-// Tool handling
-const buttons = document.querySelectorAll("#toolbar button");
-buttons.forEach(btn => {
+// Tool Selection
+document.querySelectorAll("#toolbar button").forEach(btn => {
   btn.onclick = () => {
-    if(btn.id === "clearBtn") {
-        if(confirm("Clear everything?")) {
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            saveState();
-        }
+    if(btn.id === "clearBtn" && confirm("Clear Canvas?")) {
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        saveState(); return;
+    }
+    if(btn.id === "extendBtn") {
+        const temp = ctx.getImageData(0, 0, canvas.width, canvas.height);
+        canvas.height += 1000;
+        ctx.putImageData(temp, 0, 0);
         return;
     }
+    if(btn.id === "exportBtn") { window.print(); return; }
+
     tool = btn.id.replace("Btn", "");
-    buttons.forEach(b => b.classList.remove("active"));
+    document.querySelectorAll("#toolbar button").forEach(b => b.classList.remove("active"));
     btn.classList.add("active");
-    textInput.style.display = "none"; // Hide text input if switching tools
+    textInput.style.display = "none";
+    selectionRect = null;
   };
 });
 
 canvas.addEventListener("pointerdown", e => {
-  if (tool === "text") {
-    showTextInput(e);
+  const x = e.offsetX;
+  const y = e.offsetY;
+
+  // Handle Moving an existing Selection
+  if (tool === "select" && selectionRect && 
+      x >= selectionRect.x && x <= selectionRect.x + selectionRect.w &&
+      y >= selectionRect.y && y <= selectionRect.y + selectionRect.h) {
+    isMovingSelection = true;
+    startX = x - selectionRect.x;
+    startY = y - selectionRect.y;
     return;
   }
-  
+
+  if (tool === "text") { showTextInput(e); return; }
+
   drawing = true;
-  startX = e.offsetX;
-  startY = e.offsetY;
+  startX = x;
+  startY = y;
   snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
   
-  ctx.beginPath();
-  ctx.moveTo(startX, startY);
   ctx.strokeStyle = colorPicker.value;
-  ctx.fillStyle = colorPicker.value;
   ctx.lineWidth = sizePicker.value;
+  ctx.setLineDash([]); 
 });
 
 canvas.addEventListener("pointermove", e => {
-  if (!drawing || tool === "text") return;
+  const x = e.offsetX;
+  const y = e.offsetY;
 
-  if (tool !== "pen" && tool !== "eraser") {
-    ctx.putImageData(snapshot, 0, 0);
+  if (isMovingSelection) {
+    ctx.putImageData(snapshot, 0, 0); // Restore canvas with the "hole"
+    selectionRect.x = x - startX;
+    selectionRect.y = y - startY;
+    ctx.putImageData(selectionData, selectionRect.x, selectionRect.y);
+    drawSelectionDashes(selectionRect.x, selectionRect.y, selectionRect.w, selectionRect.h);
+    return;
   }
+
+  if (!drawing) return;
+
+  if (tool !== "pen" && tool !== "eraser") ctx.putImageData(snapshot, 0, 0);
 
   if (tool === "pen") {
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
+    ctx.lineTo(x, y); ctx.stroke();
   } else if (tool === "eraser") {
     ctx.globalCompositeOperation = "destination-out";
-    ctx.lineTo(e.offsetX, e.offsetY);
-    ctx.stroke();
+    ctx.lineTo(x, y); ctx.stroke();
     ctx.globalCompositeOperation = "source-over";
   } else if (tool === "line") {
-    ctx.beginPath(); ctx.moveTo(startX, startY);
-    ctx.lineTo(e.offsetX, e.offsetY); ctx.stroke();
+    ctx.beginPath(); ctx.moveTo(startX, startY); ctx.lineTo(x, y); ctx.stroke();
   } else if (tool === "rect") {
-    ctx.strokeRect(startX, startY, e.offsetX - startX, e.offsetY - startY);
+    ctx.strokeRect(startX, startY, x - startX, y - startY);
   } else if (tool === "circle") {
-    const r = Math.hypot(e.offsetX - startX, e.offsetY - startY);
-    ctx.beginPath(); ctx.arc(startX, startY, r, 0, Math.PI * 2); ctx.stroke();
+    ctx.beginPath(); ctx.arc(startX, startY, Math.hypot(x-startX, y-startY), 0, Math.PI*2); ctx.stroke();
+  } else if (tool === "select") {
+    drawSelectionDashes(startX, startY, x - startX, y - startY);
   }
 });
 
-canvas.addEventListener("pointerup", () => {
-  if (drawing) {
-    drawing = false;
-    saveState();
+canvas.addEventListener("pointerup", e => {
+  if (tool === "select" && drawing) {
+    const w = e.offsetX - startX;
+    const h = e.offsetY - startY;
+    if (Math.abs(w) > 5 && Math.abs(h) > 5) {
+      selectionRect = { x: startX, y: startY, w, h };
+      selectionData = ctx.getImageData(startX, startY, w, h);
+      // Create the "hole" in the canvas immediately
+      ctx.clearRect(startX, startY, w, h);
+      snapshot = ctx.getImageData(0, 0, canvas.width, canvas.height);
+      ctx.putImageData(selectionData, startX, startY); // Put it back visually for now
+      drawSelectionDashes(startX, startY, w, h);
+    }
   }
+  drawing = false;
+  isMovingSelection = false;
+  saveState();
 });
 
-/* =========================
-   TEXT TOOL LOGIC
-========================= */
+function drawSelectionDashes(x, y, w, h) {
+  ctx.setLineDash([5, 5]);
+  ctx.strokeStyle = "#007bff";
+  ctx.lineWidth = 1;
+  ctx.strokeRect(x, y, w, h);
+  ctx.setLineDash([]);
+}
+
 function showTextInput(e) {
   const fontSize = parseInt(sizePicker.value) + 15;
   textInput.style.display = "block";
-  textInput.style.left = (e.pageX) + "px";
+  textInput.style.left = e.pageX + "px";
   textInput.style.top = (e.pageY - fontSize/2) + "px";
   textInput.style.color = colorPicker.value;
   textInput.style.fontSize = fontSize + "px";
   textInput.value = "";
-  
-  // Save coordinates for the canvas
-  startX = e.offsetX;
-  startY = e.offsetY;
-  
+  startX = e.offsetX; startY = e.offsetY;
   setTimeout(() => textInput.focus(), 10);
 }
 
-textInput.addEventListener("keydown", e => {
+textInput.onkeydown = e => {
   if (e.key === "Enter") {
-    const fontSize = parseInt(sizePicker.value) + 15;
     ctx.fillStyle = colorPicker.value;
-    ctx.font = `${fontSize}px sans-serif`;
+    ctx.font = `${parseInt(sizePicker.value) + 15}px sans-serif`;
     ctx.textBaseline = "middle";
     ctx.fillText(textInput.value, startX, startY);
-    
     textInput.style.display = "none";
     saveState();
-  } else if (e.key === "Escape") {
-    textInput.style.display = "none";
   }
-});
+};
 
-// Undo shortcut
 document.addEventListener("keydown", e => {
+  if (e.key === "Delete" && selectionRect) {
+    ctx.putImageData(snapshot, 0, 0); // Keep the hole, remove the selectionData
+    selectionRect = null;
+    saveState();
+  }
   if (e.ctrlKey && e.key === "z") { e.preventDefault(); undo(); }
 });
 </script>
