@@ -1,233 +1,137 @@
-/* ===========================
-   CANVAS: SPRING SIMULATION
-   =========================== */
+// ---------- Canvas ----------
+const canvas = document.getElementById("simCanvas");
+const ctx = canvas.getContext("2d");
 
-const simCanvas = document.getElementById("simCanvas");
-const simCtx = simCanvas.getContext("2d");
+// ---------- Inputs ----------
+const massIn = document.getElementById("massIn");
+const kIn = document.getElementById("kIn");
+const cIn = document.getElementById("cIn");
+const dampingEnable = document.getElementById("dampingEnable");
 
-const graphCtx = document.getElementById("graphCanvas").getContext("2d");
-let chart;
+// ---------- Buttons ----------
+const startBtn = document.getElementById("startBtn");
+const pauseBtn = document.getElementById("pauseBtn");
+const stopBtn = document.getElementById("stopBtn");
 
-/* ===========================
-   STATE VARIABLES
-   =========================== */
+// ---------- Scene Config ----------
+const scene = {
+  wallWidth: 10,
+  fixedHandle: 25,
+  groundY: 230,
+  blockSize: 50,
+  equilibriumX: 250
+};
 
-let animationId = null;
-let startTime = null;
-let pausedTime = 0;
-let isPaused = false;
-let isRunning = false;
+// ---------- Simulation State ----------
+const state = {
+  x: 0,
+  v: 0,
+  running: false,
+  paused: false,
+  animationId: null
+};
 
-let A, k, m, b;
-let omega, omega_d;
-let isDamped = false;
+// ---------- Physics Update ----------
+function updatePhysics() {
+  if (!state.running || state.paused) return;
 
-let timeData = [];
-let displacementData = [];
+  const m = parseFloat(massIn.value) || 1;
+  const k = parseFloat(kIn.value) || 0.1;
+  const c = parseFloat(cIn.value) || 0;
+  const damping = dampingEnable.checked;
 
-/* ===========================
-   DRAWING HELPERS
-   =========================== */
+  let force = -k * state.x;
+  if (damping) force -= c * state.v;
 
-const FLOOR_Y = 140;
-const MEAN_X = 220;
+  const a = force / m;
+  state.v += a;
+  state.x += state.v;
 
-function drawSpring(x) {
-  simCtx.clearRect(0, 0, simCanvas.width, simCanvas.height);
-
-  simCtx.strokeStyle = "#ffffff";
-  simCtx.fillStyle = "#ffffff";
-  simCtx.lineWidth = 2;
-
-  /* Floor */
-  simCtx.beginPath();
-  simCtx.moveTo(0, FLOOR_Y + 25);
-  simCtx.lineTo(simCanvas.width, FLOOR_Y + 25);
-  simCtx.stroke();
-
-  /* Mean position */
-  simCtx.setLineDash([5, 5]);
-  simCtx.beginPath();
-  simCtx.moveTo(MEAN_X, 0);
-  simCtx.lineTo(MEAN_X, simCanvas.height);
-  simCtx.stroke();
-  simCtx.setLineDash([]);
-
-  /* Extreme positions */
-  drawExtreme(MEAN_X + A, "+A");
-  drawExtreme(MEAN_X - A, "-A");
-
-  /* Spring (zig-zag) */
-  drawZigZagSpring(40, MEAN_X + x - 20, FLOOR_Y);
-
-  /* Mass */
-  simCtx.fillRect(MEAN_X + x - 20, FLOOR_Y - 20, 40, 40);
+  drawScene();
+  state.animationId = requestAnimationFrame(updatePhysics);
 }
 
-function drawExtreme(x, label) {
-  simCtx.beginPath();
-  simCtx.moveTo(x, FLOOR_Y + 10);
-  simCtx.lineTo(x, FLOOR_Y - 30);
-  simCtx.stroke();
-  simCtx.fillText(label, x - 8, FLOOR_Y - 35);
-}
-
-function drawZigZagSpring(x1, x2, y) {
+// ---------- Drawing ----------
+function drawHelicalSpring(startX, endX, centerY) {
   const coils = 12;
-  const dx = (x2 - x1) / coils;
+  const steps = coils * 40;
+  const length = endX - startX;
+  const amplitude = 18;
 
-  simCtx.beginPath();
-  simCtx.moveTo(x1, y);
+  ctx.beginPath();
+  ctx.strokeStyle = "#ff8c42";
+  ctx.lineWidth = 3;
 
-  for (let i = 1; i < coils; i++) {
-    simCtx.lineTo(
-      x1 + i * dx,
-      y + (i % 2 === 0 ? -10 : 10)
-    );
-  }
-  simCtx.lineTo(x2, y);
-  simCtx.stroke();
-}
+  ctx.moveTo(scene.wallWidth, centerY);
+  ctx.lineTo(startX, centerY);
 
-/* ===========================
-   ANIMATION LOOP
-   =========================== */
-
-function animate(timestamp) {
-  if (!startTime) startTime = timestamp;
-  const t = (timestamp - startTime - pausedTime) / 1000;
-
-  let x = 0;
-  if (isRunning) {
-    if (isDamped) {
-      x = A * Math.exp(-b * t / (2 * m)) * Math.cos(omega_d * t);
-    } else {
-      x = A * Math.cos(omega * t);
-    }
-
-    timeData.push(t);
-    displacementData.push(x);
-    updateGraph();
+  for (let i = 0; i <= steps; i++) {
+    const t = i / steps;
+    const angle = t * Math.PI * 2 * coils;
+    const x = startX + t * length + Math.cos(angle) * 3;
+    const y = centerY + Math.sin(angle) * amplitude;
+    ctx.lineTo(x, y);
   }
 
-  drawSpring(x);
-  animationId = requestAnimationFrame(animate);
+  ctx.lineTo(endX, centerY);
+  ctx.stroke();
 }
 
-/* ===========================
-   GRAPH
-   =========================== */
+function drawScene() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
 
-function initGraph() {
-  const yMax = A + A / 5;
-  const yMin = -A - A / 5;
+  // Floor
+  ctx.strokeStyle = "#ccc";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, scene.groundY);
+  ctx.lineTo(canvas.width, scene.groundY);
+  ctx.stroke();
 
-  chart = new Chart(graphCtx, {
-    type: "line",
-    data: {
-      labels: timeData,
-      datasets: [{
-        data: displacementData,
-        borderColor: "#ffffff",
-        borderWidth: 2,
-        pointRadius: 0
-      }]
-    },
-    options: {
-      animation: false,
-      scales: {
-        x: {
-          title: { display: true, text: "Time (s)", color: "#ffffff" },
-          ticks: { color: "#ffffff" }
-        },
-        y: {
-          title: { display: true, text: "Displacement (cm)", color: "#ffffff" },
-          ticks: { color: "#ffffff" },
-          min: yMin,
-          max: yMax
-        }
-      },
-      plugins: {
-        legend: { display: false },
-        zoom: {
-          pan: {
-            enabled: true,
-            mode: "x",
-            modifierKey: null   // 🔑 FIX: allows drag without ctrl
-          },
-          zoom: {
-            wheel: { enabled: true },
-            pinch: { enabled: true },
-            mode: "x"
-          }
-        }
-      }
-    }
-  });
+  // Wall
+  ctx.fillStyle = "#aaa";
+  ctx.fillRect(0, 50, scene.wallWidth, scene.groundY - 50);
+
+  const blockX = scene.equilibriumX + state.x;
+  const centerY = scene.groundY - scene.blockSize / 2;
+
+  drawHelicalSpring(scene.wallWidth + scene.fixedHandle, blockX, centerY);
+
+  // Mass
+  ctx.fillStyle = "#5dade2";
+  ctx.strokeStyle = "#ff8c42";
+  ctx.lineWidth = 2;
+  ctx.fillRect(blockX, scene.groundY - scene.blockSize, scene.blockSize, scene.blockSize);
+  ctx.strokeRect(blockX, scene.groundY - scene.blockSize, scene.blockSize, scene.blockSize);
 }
 
-function updateGraph() {
-  chart.update();
-}
+// ---------- Controls ----------
+startBtn.onclick = () => {
+  cancelAnimationFrame(state.animationId);
+  state.x = 180;
+  state.v = 0;
+  state.running = true;
+  state.paused = false;
+  pauseBtn.textContent = "Pause";
+  updatePhysics();
+};
 
-/* ===========================
-   CONTROLS
-   =========================== */
+pauseBtn.onclick = () => {
+  if (!state.running) return;
+  state.paused = !state.paused;
+  pauseBtn.textContent = state.paused ? "Resume" : "Pause";
+  if (!state.paused) updatePhysics();
+};
 
-function startSimulation() {
-  stopSimulation();
+stopBtn.onclick = () => {
+  state.running = false;
+  state.paused = false;
+  cancelAnimationFrame(state.animationId);
+  state.x = 0;
+  state.v = 0;
+  pauseBtn.textContent = "Pause";
+  drawScene();
+};
 
-  A = parseFloat(document.getElementById("A").value);
-  k = parseFloat(document.getElementById("k").value);
-  m = parseFloat(document.getElementById("m").value);
-  b = parseFloat(document.getElementById("b").value);
-  isDamped = document.getElementById("dampingToggle").checked;
-
-  omega = Math.sqrt(k / m);
-  if (isDamped) {
-    omega_d = Math.sqrt(Math.max(0, k / m - (b * b) / (4 * m * m)));
-  }
-
-  timeData = [];
-  displacementData = [];
-
-  isRunning = true;
-  startTime = null;
-  pausedTime = 0;
-
-  if (chart) chart.destroy();
-  initGraph();
-
-  animationId = requestAnimationFrame(animate);
-}
-
-function pauseSimulation() {
-  if (!isRunning) return;
-
-  if (!isPaused) {
-    pausedTime += performance.now() - startTime - pausedTime;
-    isPaused = true;
-    isRunning = false;
-  } else {
-    startTime = performance.now();
-    isPaused = false;
-    isRunning = true;
-  }
-}
-
-function stopSimulation() {
-  isRunning = false;
-  isPaused = false;
-  startTime = null;
-  drawStaticSystem();
-}
-
-
-function drawStaticSystem() {
-  const A_input = parseFloat(document.getElementById("A").value) || 60;
-  A = A_input;
-  drawSpring(0);   // x = 0 → mean position
-}
-window.addEventListener("load", () => {
-  drawStaticSystem();
-});
+// Initial render
+drawScene();
