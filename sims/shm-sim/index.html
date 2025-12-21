@@ -1,110 +1,70 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8">
-  <title>Spring–Mass Simulation</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Simple Harmonic Oscillator</title>
 
-  <!-- MASTER SIMULATION THEME -->
-  <link rel="stylesheet" href="../assests/sim-theme.css">
-
-  <!-- LOCAL SIM OVERRIDES (optional) -->
-  <link rel="stylesheet" href="sim.css">
-
-  <!-- Chart.js -->
-  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-
-  <!-- Chart.js Zoom Plugin -->
-  <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
+  <link rel="stylesheet" href="simulation.css" />
 </head>
-
 <body>
 
-  <!-- ===================== -->
-  <!-- SIMULATION TITLE -->
-  <!-- ===================== -->
-  <h1>Simple Harmonic OScillator (SHM)</h1>
-<div class="tag-row">
-  <span class="tag tag-physics">SHM</span>
-  <span class="tag tag-model">Damped</span>
-  <span class="tag tag-grade">Class 11</span>
-</div>
+  <!-- Page Header -->
+  <header class="page-header">
+    <h1 class="page-title">Simple Harmonic Oscillator</h1>
+  </header>
 
-  <!-- ===================== -->
-  <!-- TOP: TWO-COLUMN LAYOUT -->
-  <!-- ===================== -->
-  <div class="container">
-
-    <!-- -------- LEFT: PARAMETERS -------- -->
-    <div class="left">
-
-      <section class="sim-section outlined">
-        <h2>Parameters</h2>
-
-        <div class="param-row">
-          <label for="A">Amplitude</label>
-          <input id="A" type="number" value="60">
-        </div>
-
-        <div class="param-row">
-          <label for="k">Spring Constant (k)</label>
-          <input id="k" type="number" value="10">
-        </div>
-
-        <div class="param-row">
-          <label for="m">Mass (m)</label>
-          <input id="m" type="number" value="1">
-        </div>
-
-        <div class="param-row">
-          <label for="dampingToggle">Is damped?</label>
-          <input id="dampingToggle" type="checkbox">
-        </div>
-
-        <div class="param-row">
-          <label for="b">Damping Constant (b)</label>
-          <input id="b" type="number" value="0.5">
-        </div>
-
-      </section>
-
-    </div>
-
-    <!-- -------- RIGHT: SIMULATION -------- -->
-    <div class="right">
-
-      <section class="sim-section">
-        <h2>Spring Simulation</h2>
-
-        <div class="button-row">
-          <button class="sim-btn" onclick="startSimulation()">Start</button>
-          <button class="sim-btn" onclick="pauseSimulation()">Pause</button>
-          <button class="sim-btn" onclick="stopSimulation()">Stop</button>
-        </div>
-
-        <canvas id="simCanvas" width="420" height="220"></canvas>
-      </section>
-
-    </div>
-  </div>
-
-  <!-- ===================== -->
-  <!-- GRAPH SECTION (CENTERED) -->
-  <!-- ===================== -->
-  <section class="sim-section mt-20">
-    <h2 class="text-center">Displacement vs Time</h2>
-
-    <div class="graph-toolbar">
-      <button onclick="exportGraphPNG()">Export PNG</button>
-      <button onclick="exportCSV()">Export CSV</button>
-    </div>
-
-    <canvas id="graphCanvas"></canvas>
+  <!-- Tags -->
+  <section class="tags-row">
+    <span class="tag tag-class">Class 11</span>
+    <span class="tag tag-topic">SHM</span>
   </section>
 
-  <!-- ===================== -->
-  <!-- SIMULATION LOGIC -->
-  <!-- ===================== -->
-  <script src="simulation.js"></script>
+  <!-- Main Layout -->
+  <main class="simulation-layout">
 
+    <!-- Parameters -->
+    <aside class="parameters-panel">
+      <h2 class="section-title">Parameters</h2>
+
+      <label>
+        Mass (m)
+        <input type="number" id="massIn" value="10" min="0.1" step="0.1">
+      </label>
+
+      <label>
+        Spring Constant (k)
+        <input type="number" id="kIn" value="0.5" min="0.01" step="0.1">
+      </label>
+
+      <label class="checkbox">
+        <input type="checkbox" id="dampingEnable">
+        Enable Damping
+      </label>
+
+      <label>
+        Damping Constant (b)
+        <input type="number" id="cIn" value="0.1" min="0" step="0.01">
+      </label>
+    </aside>
+
+    <!-- Simulation Panel -->
+    <section class="simulation-panel">
+      <h2 class="section-title">Simulation</h2>
+
+      <div class="controls">
+        <button class="btn btn-start" id="startBtn">Start</button>
+        <button class="btn btn-pause" id="pauseBtn">Pause</button>
+        <button class="btn btn-stop" id="stopBtn">Stop</button>
+      </div>
+
+      <div class="canvas-container">
+        <canvas id="simCanvas" width="700" height="300"></canvas>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="simulation.js"></script>
 </body>
 </html>
