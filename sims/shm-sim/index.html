@@ -10,7 +10,7 @@
 <body>
 
     <h1>Simple Harmonic Oscillator (SHM)</h1>
-    <div>
+    <div class="tag-container">
         <span class="tag">Class 11</span>
         <span class="tag">SHM</span>
         <span class="tag">Waves</span>
@@ -21,7 +21,7 @@
             <h2>Parameters</h2>
             <div class="input-group">
                 <label>Amplitude, A (cm):</label>
-                <input type="number" id="ampIn" value="80">
+                <input type="number" id="ampIn" value="100">
             </div>
             <div class="input-group">
                 <label>Mass, m (kg):</label>
@@ -43,7 +43,9 @@
 
         <div class="panel">
             <h2>Simulation</h2>
-            <canvas id="simCanvas" width="500" height="200"></canvas>
+            <div class="canvas-container">
+                <canvas id="simCanvas" width="600" height="250"></canvas>
+            </div>
             <div class="controls">
                 <button id="startBtn">Start</button>
                 <button id="pauseResumeBtn">Pause</button>
@@ -53,7 +55,7 @@
     </div>
 
     <div id="graph-container">
-        <canvas id="shmGraph"></canvas>
+        <canvas id="shmGraph" height="100"></canvas>
         <div class="export-btns">
             <button onclick="exportPNG()">Export as PNG</button>
             <button onclick="exportCSV()">Save Data as CSV</button>
@@ -67,9 +69,9 @@
         let isRunning = false, isPaused = false, animationId;
         let graphData = { t: [], x: [] };
 
-        // Chart.js Setup
+        // --- Chart.js Initialization ---
         const chartCtx = document.getElementById('shmGraph').getContext('2d');
-        const chart = new Chart(chartCtx, {
+        let chart = new Chart(chartCtx, {
             type: 'line',
             data: {
                 labels: [],
@@ -77,19 +79,34 @@
                     label: 'Displacement (cm)',
                     data: [],
                     borderColor: '#58a6ff',
+                    backgroundColor: 'rgba(88, 166, 255, 0.1)',
                     borderWidth: 2,
                     pointRadius: 0,
-                    fill: false
+                    fill: true,
+                    tension: 0.2
                 }]
             },
             options: {
                 responsive: true,
                 scales: {
-                    x: { title: { display: true, text: 'Time (s)', color: '#c9d1d9' }, ticks: { color: '#c9d1d9' } },
-                    y: { title: { display: true, text: 'Displacement (cm)', color: '#c9d1d9' }, ticks: { color: '#c9d1d9' } }
+                    x: { 
+                        title: { display: true, text: 'Time (s)', color: '#8b949e' },
+                        ticks: { color: '#8b949e' },
+                        grid: { color: '#30363d' }
+                    },
+                    y: { 
+                        title: { display: true, text: 'Displacement (in cm)', color: '#8b949e' },
+                        ticks: { color: '#8b949e' },
+                        grid: { color: '#30363d' },
+                        min: -110,
+                        max: 110
+                    }
                 },
                 plugins: {
-                    zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
+                    zoom: {
+                        zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' },
+                        pan: { enabled: true, mode: 'x' }
+                    }
                 }
             }
         });
@@ -102,22 +119,23 @@
             const b = parseFloat(document.getElementById('bIn').value) || 0;
             const damped = document.getElementById('dampingEnable').checked;
 
+            // F = -kx - bv
             let force = -k * x;
             if (damped) force -= b * v;
 
-            v += (force / m);
+            let acceleration = force / m;
+            v += acceleration;
             x += v;
-            time += 0.16; // Increment time
+            time += 0.05; // Time step
 
-            // Update Graph
+            // Update Graph Data
             const roundedTime = time.toFixed(2);
             chart.data.labels.push(roundedTime);
             chart.data.datasets[0].data.push(x.toFixed(2));
             graphData.t.push(roundedTime);
             graphData.x.push(x.toFixed(2));
             
-            if (chart.data.labels.length > 100) chart.update('none'); 
-            else chart.update();
+            chart.update('none'); // Update without animation for performance
 
             draw();
             animationId = requestAnimationFrame(updatePhysics);
@@ -125,72 +143,103 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const groundY = 180, eqX = 150, bSize = 40;
+            const groundY = 200, eqX = 200, bSize = 50;
             const curX = eqX + x;
 
-            // Wall & Floor
+            // Draw Wall and Floor
             ctx.strokeStyle = "#30363d";
-            ctx.strokeRect(0, groundY, canvas.width, 2);
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.moveTo(0, groundY); ctx.lineTo(canvas.width, groundY);
+            ctx.stroke();
+            
             ctx.fillStyle = "#30363d";
-            ctx.fillRect(0, 50, 10, groundY-50);
+            ctx.fillRect(0, 50, 15, groundY - 50);
 
             // Helical Spring
+            const springStartY = groundY - (bSize/2);
             ctx.beginPath();
             ctx.strokeStyle = "#ff7b72";
-            ctx.moveTo(10, groundY - 20);
-            ctx.lineTo(30, groundY - 20);
-            for(let i=0; i<=400; i++){
-                let frag = i/400;
-                let sx = 30 + frag * (curX - 30);
-                let sy = (groundY - 20) + Math.sin(frag * Math.PI * 2 * 12) * 15;
+            ctx.lineWidth = 2;
+            ctx.moveTo(15, springStartY);
+            ctx.lineTo(40, springStartY); // Handle
+
+            const coils = 15;
+            const springWidth = curX - 40;
+            for(let i=0; i<=500; i++){
+                let frag = i/500;
+                let sx = 40 + frag * springWidth;
+                let sy = springStartY + Math.sin(frag * Math.PI * 2 * coils) * 20;
                 ctx.lineTo(sx, sy);
             }
+            ctx.lineTo(curX, springStartY);
             ctx.stroke();
 
             // Mass
             ctx.fillStyle = "#8b949e";
             ctx.fillRect(curX, groundY - bSize, bSize, bSize);
+            ctx.strokeStyle = "#ff7b72";
+            ctx.strokeRect(curX, groundY - bSize, bSize, bSize);
         }
 
+        // Button Logic
         document.getElementById('startBtn').onclick = () => {
-            const A = parseFloat(document.getElementById('ampIn').value);
-            x = A; v = 0; time = 0;
+            const A = parseFloat(document.getElementById('ampIn').value) || 50;
+            x = A; // Amplitude inclusion: Simulation starts at the A position
+            v = 0;
+            time = 0;
+            
+            // Adjust Graph Axis based on Amplitude
             chart.options.scales.y.min = -A * 1.1;
             chart.options.scales.y.max = A * 1.1;
             chart.data.labels = [];
             chart.data.datasets[0].data = [];
             graphData = { t: [], x: [] };
-            isRunning = true; isPaused = false;
+            
+            isRunning = true;
+            isPaused = false;
+            document.getElementById('pauseResumeBtn').innerText = "Pause";
             updatePhysics();
         };
 
         document.getElementById('pauseResumeBtn').onclick = (e) => {
+            if (!isRunning) return;
             isPaused = !isPaused;
             e.target.innerText = isPaused ? "Resume" : "Pause";
             if (!isPaused) updatePhysics();
         };
 
         document.getElementById('stopBtn').onclick = () => {
-            isRunning = false; cancelAnimationFrame(animationId);
+            isRunning = false;
+            cancelAnimationFrame(animationId);
+            x = 0; 
+            draw();
         };
 
         function exportPNG() {
             const link = document.createElement('a');
-            link.download = 'shm-graph.png';
-            link.href = document.getElementById('shmGraph').toDataURL();
+            link.download = 'shm_graph.png';
+            link.href = document.getElementById('shmGraph').toDataURL('image/png');
             link.click();
         }
 
         function exportCSV() {
-            let csv = "Time(s),Displacement(cm)\n";
-            graphData.t.forEach((t, i) => csv += `${t},${graphData.x[i]}\n`);
+            let csv = "Time (s),Displacement (cm)\n";
+            graphData.t.forEach((t, i) => {
+                csv += `${t},${graphData.x[i]}\n`;
+            });
             const blob = new Blob([csv], { type: 'text/csv' });
-            const link = document.createElement('a');
-            link.href = URL.createObjectURL(blob);
-            link.download = 'shm_data.csv';
-            link.click();
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.setAttribute('hidden', '');
+            a.setAttribute('href', url);
+            a.setAttribute('download', 'shm_data.csv');
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
         }
 
+        // Initial Draw
         draw();
     </script>
 </body>
