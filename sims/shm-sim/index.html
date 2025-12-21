@@ -89,12 +89,12 @@
                     x: { 
                         title: { display: true, text: 'Time (s)', color: tickColor },
                         ticks: { color: tickColor },
-                        grid: { color: tickColor, alpha: 0.1 } // Grid matches xticks
+                        grid: { color: tickColor, alpha: 0.1, borderDash: [5,5], lineWidth:0.5 } // Grid matches xticks
                     },
                     y: { 
                         title: { display: true, text: 'Displacement (in cm)', color: tickColor },
                         ticks: { color: tickColor },
-                        grid: { color: tickColor } 
+                        grid: { color: tickColor, alpha:0.1, borderDash: [5,5], lineWidth:0.5 } 
                     }
                 },
                 plugins: {
