@@ -2,137 +2,10 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Simple Harmonic Oscillator (SHM)</title>
+    <link rel="stylesheet" href="./assets/sim-theme.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
-    
-    <style>
-        :root {
-            --bg-color: #0d1117;
-            --card-bg: #161b22;
-            --accent-blue: #58a6ff;
-            --accent-red: #ff7b72;
-            --text-main: #c9d1d9;
-            --border-color: #30363d;
-        }
-
-        body {
-            background-color: var(--bg-color);
-            color: var(--text-main);
-            font-family: 'Segoe UI', Roboto, sans-serif;
-            margin: 0;
-            padding: 20px 40px;
-        }
-
-        h1 { color: var(--accent-blue); margin-bottom: 5px; }
-        h2 { 
-            color: var(--accent-blue); 
-            font-size: 1.2rem; 
-            border-bottom: 1px solid var(--border-color); 
-            padding-bottom: 10px;
-            margin-top: 0;
-        }
-
-        .tag-container { margin-bottom: 25px; }
-        .tag {
-            background: #21262d;
-            border: 1px solid var(--border-color);
-            padding: 4px 12px;
-            border-radius: 15px;
-            font-size: 0.8rem;
-            margin-right: 8px;
-            color: #8b949e;
-        }
-
-        /* Layout Divisions */
-        .main-grid {
-            display: grid;
-            grid-template-columns: 1fr 2fr; /* Horizontal Split */
-            gap: 20px;
-            margin-bottom: 20px;
-        }
-
-        .panel {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
-        }
-
-        /* Parameters Styling */
-        .input-group {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 12px;
-        }
-
-        .input-group label { font-size: 0.9rem; }
-
-        input[type="number"] {
-            background: #0d1117;
-            border: 1px solid var(--border-color);
-            color: white;
-            padding: 5px;
-            border-radius: 4px;
-            width: 70px;
-            outline: none;
-        }
-
-        input[type="checkbox"] { cursor: pointer; }
-
-        /* Simulation Area */
-        #simCanvas {
-            width: 100%;
-            height: 200px;
-            background: rgba(0,0,0,0.2);
-            border-radius: 8px;
-        }
-
-        .controls {
-            display: flex;
-            justify-content: center;
-            gap: 15px;
-            margin-top: 15px;
-        }
-
-        button {
-            padding: 8px 18px;
-            border-radius: 6px;
-            border: none;
-            font-weight: bold;
-            cursor: pointer;
-            transition: 0.2s;
-        }
-
-        #startBtn { background: var(--accent-blue); color: white; }
-        #pauseResumeBtn { background: #30363d; color: white; border: 1px solid var(--border-color); }
-        #stopBtn { background: var(--accent-red); color: white; }
-        button:hover { opacity: 0.8; }
-
-        /* Graph Section */
-        #graph-panel {
-            background: var(--card-bg);
-            border: 1px solid var(--border-color);
-            border-radius: 12px;
-            padding: 20px;
-        }
-
-        .export-row {
-            margin-top: 15px;
-            display: flex;
-            gap: 10px;
-        }
-
-        .export-btn {
-            background: transparent;
-            border: 1px solid var(--accent-blue);
-            color: var(--accent-blue);
-            font-size: 0.8rem;
-        }
-    </style>
 </head>
 <body>
 
@@ -144,7 +17,7 @@
     </div>
 
     <div class="main-grid">
-        <div class="panel">
+        <div class="panel left-panel">
             <h2>Parameters</h2>
             <div class="input-group">
                 <label>Amplitude, A (cm)</label>
@@ -168,9 +41,9 @@
             </div>
         </div>
 
-        <div class="panel">
+        <div class="panel right-panel">
             <h2>Simulation</h2>
-            <canvas id="simCanvas" width="600" height="200"></canvas>
+            <canvas id="simCanvas" width="600" height="220"></canvas>
             <div class="controls">
                 <button id="startBtn">Start</button>
                 <button id="pauseResumeBtn">Pause</button>
@@ -190,12 +63,12 @@
     <script>
         const canvas = document.getElementById('simCanvas');
         const ctx = canvas.getContext('2d');
-        
         let x = 0, v = 0, time = 0;
         let isRunning = false, isPaused = false, animationId;
         let history = { t: [], x: [] };
 
-        // Chart.js Configuration
+        // --- Chart Initialization ---
+        const tickColor = '#8b949e';
         const chartCtx = document.getElementById('shmGraph').getContext('2d');
         let chart = new Chart(chartCtx, {
             type: 'line',
@@ -207,47 +80,25 @@
                     borderColor: '#58a6ff',
                     borderWidth: 2,
                     pointRadius: 0,
-                    fill: false,
-                    tension: 0.1
+                    fill: false
                 }]
             },
             options: {
                 responsive: true,
                 scales: {
                     x: { 
-                        title: { 
-                            display: true, 
-                            text: 'Time (s)', 
-                            color: '#8b949e' 
-                        },
-                        ticks: { 
-                            color: '#8b949e' // The color of the numbers/labels
-                        },
-                        grid: { 
-                            color: '#8b949e', // Set grid lines to match ticks
-                            borderColor: '#30363d', // Keeps the main axis line distinct
-                            drawOnChartArea: true,
-                            drawTicks: true
-                        }
+                        title: { display: true, text: 'Time (s)', color: tickColor },
+                        ticks: { color: tickColor },
+                        grid: { color: tickColor, alpha: 0.1 } // Grid matches xticks
                     },
                     y: { 
-                        title: { 
-                            display: true, 
-                            text: 'Displacement (in cm)', 
-                            color: '#8b949e' 
-                        },
-                        ticks: { 
-                            color: '#8b949e' 
-                        },
-                        grid: { 
-                            color: '#8b949e', // Set grid lines to match ticks
-                            borderColor: '#30363d'
-                        }
+                        title: { display: true, text: 'Displacement (in cm)', color: tickColor },
+                        ticks: { color: tickColor },
+                        grid: { color: tickColor } 
                     }
-                }
-            },
-            plugins: {
-                zoom: { zoom: { wheel: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
+                },
+                plugins: {
+                    zoom: { zoom: { wheel: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
                 }
             }
         });
@@ -260,16 +111,13 @@
             const b = parseFloat(document.getElementById('bIn').value) || 0.05;
             const isDamped = document.getElementById('dampedCheck').checked;
 
-            // Physics: a = F/m -> F = -kx - bv
             let force = -k * x;
             if (isDamped) force -= b * v;
 
-            let accel = force / m;
-            v += accel;
+            v += (force / m);
             x += v;
             time += 0.05;
 
-            // Update Data
             const tFixed = time.toFixed(2);
             chart.data.labels.push(tFixed);
             chart.data.datasets[0].data.push(x.toFixed(2));
@@ -283,31 +131,32 @@
 
         function draw() {
             ctx.clearRect(0, 0, canvas.width, canvas.height);
-            const groundY = 170, eqX = 150, bSize = 40;
+            const groundY = 180, eqX = 200, bSize = 45;
             const curX = eqX + x;
+            const centerY = groundY - (bSize / 2);
 
             // Floor & Wall
             ctx.strokeStyle = "#30363d";
-            ctx.lineWidth = 2;
+            ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.moveTo(0, groundY); ctx.lineTo(canvas.width, groundY);
             ctx.stroke();
             ctx.fillStyle = "#30363d";
-            ctx.fillRect(0, 40, 10, groundY - 40);
+            ctx.fillRect(0, 40, 15, groundY - 40);
 
             // Helical Spring
-            const centerY = groundY - (bSize / 2);
             ctx.beginPath();
             ctx.strokeStyle = "#ff7b72";
-            ctx.moveTo(10, centerY);
-            ctx.lineTo(30, centerY); // Static Handle
+            ctx.lineWidth = 2;
+            ctx.moveTo(15, centerY);
+            ctx.lineTo(40, centerY); 
 
             const coils = 12;
-            const springWidth = curX - 30;
-            for (let i = 0; i <= 200; i++) {
-                const f = i / 200;
-                const sx = 30 + f * springWidth;
-                const sy = centerY + Math.sin(f * Math.PI * 2 * coils) * 15;
+            const springWidth = curX - 40;
+            for (let i = 0; i <= 300; i++) {
+                const f = i / 300;
+                const sx = 40 + f * springWidth;
+                const sy = centerY + Math.sin(f * Math.PI * 2 * coils) * 18;
                 ctx.lineTo(sx, sy);
             }
             ctx.lineTo(curX, centerY);
@@ -318,17 +167,15 @@
             ctx.fillRect(curX, groundY - bSize, bSize, bSize);
         }
 
-        // --- BUTTONS ---
+        // --- Event Handlers ---
         document.getElementById('startBtn').onclick = () => {
             const A = parseFloat(document.getElementById('ampIn').value) || 50;
-            x = A; v = 0; time = 0; // Amplitude applied here
-            
+            x = A; v = 0; time = 0;
             chart.options.scales.y.min = -A * 1.1;
             chart.options.scales.y.max = A * 1.1;
             chart.data.labels = [];
             chart.data.datasets[0].data = [];
             history = { t: [], x: [] };
-
             isRunning = true; isPaused = false;
             document.getElementById('pauseResumeBtn').innerText = "Pause";
             update();
@@ -347,7 +194,6 @@
             x = 0; draw();
         };
 
-        // Export Functions
         function exportPNG() {
             const link = document.createElement('a');
             link.download = 'shm_graph.png';
@@ -365,7 +211,7 @@
             a.click();
         }
 
-        draw(); // Show initial state
+        draw();
     </script>
 </body>
 </html>
