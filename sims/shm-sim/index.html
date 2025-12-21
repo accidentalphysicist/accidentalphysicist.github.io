@@ -212,42 +212,42 @@
                 }]
             },
             options: {
-    responsive: true,
-    scales: {
-        x: { 
-            title: { 
-                display: true, 
-                text: 'Time (s)', 
-                color: '#8b949e' 
+                responsive: true,
+                scales: {
+                    x: { 
+                        title: { 
+                            display: true, 
+                            text: 'Time (s)', 
+                            color: '#8b949e' 
+                        },
+                        ticks: { 
+                            color: '#8b949e' // The color of the numbers/labels
+                        },
+                        grid: { 
+                            color: '#8b949e', // Set grid lines to match ticks
+                            borderColor: '#30363d', // Keeps the main axis line distinct
+                            drawOnChartArea: true,
+                            drawTicks: true
+                        }
+                    },
+                    y: { 
+                        title: { 
+                            display: true, 
+                            text: 'Displacement (in cm)', 
+                            color: '#8b949e' 
+                        },
+                        ticks: { 
+                            color: '#8b949e' 
+                        },
+                        grid: { 
+                            color: '#8b949e', // Set grid lines to match ticks
+                            borderColor: '#30363d'
+                        }
+                    }
+                }
             },
-            ticks: { 
-                color: '#8b949e' // The color of the numbers/labels
-            },
-            grid: { 
-                color: '#8b949e', // Set grid lines to match ticks
-                borderColor: '#30363d', // Keeps the main axis line distinct
-                drawOnChartArea: true,
-                drawTicks: true
-            }
-        },
-        y: { 
-            title: { 
-                display: true, 
-                text: 'Displacement (in cm)', 
-                color: '#8b949e' 
-            },
-            ticks: { 
-                color: '#8b949e' 
-            },
-            grid: { 
-                color: '#8b949e', // Set grid lines to match ticks
-                borderColor: '#30363d'
-            }
-        }
-    }
-},
-                plugins: {
-                    zoom: { zoom: { wheel: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
+            plugins: {
+                zoom: { zoom: { wheel: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
                 }
             }
         });
