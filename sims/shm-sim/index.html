@@ -1,70 +1,197 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-  <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Simple Harmonic Oscillator</title>
-
-  <link rel="stylesheet" href="simulation.css" />
+    <meta charset="UTF-8">
+    <title>SHM Simulation</title>
+    <link rel="stylesheet" href="./assets/sim-theme.css">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/chartjs-plugin-zoom"></script>
 </head>
 <body>
 
-  <!-- Page Header -->
-  <header class="page-header">
-    <h1 class="page-title">Simple Harmonic Oscillator</h1>
-  </header>
+    <h1>Simple Harmonic Oscillator (SHM)</h1>
+    <div>
+        <span class="tag">Class 11</span>
+        <span class="tag">SHM</span>
+        <span class="tag">Waves</span>
+    </div>
 
-  <!-- Tags -->
-  <section class="tags-row">
-    <span class="tag tag-class">Class 11</span>
-    <span class="tag tag-topic">SHM</span>
-  </section>
+    <div class="main-container">
+        <div class="panel">
+            <h2>Parameters</h2>
+            <div class="input-group">
+                <label>Amplitude, A (cm):</label>
+                <input type="number" id="ampIn" value="80">
+            </div>
+            <div class="input-group">
+                <label>Mass, m (kg):</label>
+                <input type="number" id="massIn" value="10">
+            </div>
+            <div class="input-group">
+                <label>Spring constant, k:</label>
+                <input type="number" id="kIn" value="0.5" step="0.1">
+            </div>
+            <div class="input-group">
+                <label>Is Damped:</label>
+                <input type="checkbox" id="dampingEnable">
+            </div>
+            <div class="input-group">
+                <label>Damping constant, b:</label>
+                <input type="number" id="bIn" value="0.05" step="0.01">
+            </div>
+        </div>
 
-  <!-- Main Layout -->
-  <main class="simulation-layout">
+        <div class="panel">
+            <h2>Simulation</h2>
+            <canvas id="simCanvas" width="500" height="200"></canvas>
+            <div class="controls">
+                <button id="startBtn">Start</button>
+                <button id="pauseResumeBtn">Pause</button>
+                <button id="stopBtn">Stop</button>
+            </div>
+        </div>
+    </div>
 
-    <!-- Parameters -->
-    <aside class="parameters-panel">
-      <h2 class="section-title">Parameters</h2>
+    <div id="graph-container">
+        <canvas id="shmGraph"></canvas>
+        <div class="export-btns">
+            <button onclick="exportPNG()">Export as PNG</button>
+            <button onclick="exportCSV()">Save Data as CSV</button>
+        </div>
+    </div>
 
-      <label>
-        Mass (m)
-        <input type="number" id="massIn" value="10" min="0.1" step="0.1">
-      </label>
+    <script>
+        const canvas = document.getElementById('simCanvas');
+        const ctx = canvas.getContext('2d');
+        let x = 0, v = 0, time = 0;
+        let isRunning = false, isPaused = false, animationId;
+        let graphData = { t: [], x: [] };
 
-      <label>
-        Spring Constant (k)
-        <input type="number" id="kIn" value="0.5" min="0.01" step="0.1">
-      </label>
+        // Chart.js Setup
+        const chartCtx = document.getElementById('shmGraph').getContext('2d');
+        const chart = new Chart(chartCtx, {
+            type: 'line',
+            data: {
+                labels: [],
+                datasets: [{
+                    label: 'Displacement (cm)',
+                    data: [],
+                    borderColor: '#58a6ff',
+                    borderWidth: 2,
+                    pointRadius: 0,
+                    fill: false
+                }]
+            },
+            options: {
+                responsive: true,
+                scales: {
+                    x: { title: { display: true, text: 'Time (s)', color: '#c9d1d9' }, ticks: { color: '#c9d1d9' } },
+                    y: { title: { display: true, text: 'Displacement (cm)', color: '#c9d1d9' }, ticks: { color: '#c9d1d9' } }
+                },
+                plugins: {
+                    zoom: { zoom: { wheel: { enabled: true }, pinch: { enabled: true }, mode: 'x' }, pan: { enabled: true, mode: 'x' } }
+                }
+            }
+        });
 
-      <label class="checkbox">
-        <input type="checkbox" id="dampingEnable">
-        Enable Damping
-      </label>
+        function updatePhysics() {
+            if (!isRunning || isPaused) return;
 
-      <label>
-        Damping Constant (b)
-        <input type="number" id="cIn" value="0.1" min="0" step="0.01">
-      </label>
-    </aside>
+            const m = parseFloat(document.getElementById('massIn').value) || 1;
+            const k = parseFloat(document.getElementById('kIn').value) || 0.1;
+            const b = parseFloat(document.getElementById('bIn').value) || 0;
+            const damped = document.getElementById('dampingEnable').checked;
 
-    <!-- Simulation Panel -->
-    <section class="simulation-panel">
-      <h2 class="section-title">Simulation</h2>
+            let force = -k * x;
+            if (damped) force -= b * v;
 
-      <div class="controls">
-        <button class="btn btn-start" id="startBtn">Start</button>
-        <button class="btn btn-pause" id="pauseBtn">Pause</button>
-        <button class="btn btn-stop" id="stopBtn">Stop</button>
-      </div>
+            v += (force / m);
+            x += v;
+            time += 0.16; // Increment time
 
-      <div class="canvas-container">
-        <canvas id="simCanvas" width="700" height="300"></canvas>
-      </div>
-    </section>
+            // Update Graph
+            const roundedTime = time.toFixed(2);
+            chart.data.labels.push(roundedTime);
+            chart.data.datasets[0].data.push(x.toFixed(2));
+            graphData.t.push(roundedTime);
+            graphData.x.push(x.toFixed(2));
+            
+            if (chart.data.labels.length > 100) chart.update('none'); 
+            else chart.update();
 
-  </main>
+            draw();
+            animationId = requestAnimationFrame(updatePhysics);
+        }
 
-  <script src="simulation.js"></script>
+        function draw() {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            const groundY = 180, eqX = 150, bSize = 40;
+            const curX = eqX + x;
+
+            // Wall & Floor
+            ctx.strokeStyle = "#30363d";
+            ctx.strokeRect(0, groundY, canvas.width, 2);
+            ctx.fillStyle = "#30363d";
+            ctx.fillRect(0, 50, 10, groundY-50);
+
+            // Helical Spring
+            ctx.beginPath();
+            ctx.strokeStyle = "#ff7b72";
+            ctx.moveTo(10, groundY - 20);
+            ctx.lineTo(30, groundY - 20);
+            for(let i=0; i<=400; i++){
+                let frag = i/400;
+                let sx = 30 + frag * (curX - 30);
+                let sy = (groundY - 20) + Math.sin(frag * Math.PI * 2 * 12) * 15;
+                ctx.lineTo(sx, sy);
+            }
+            ctx.stroke();
+
+            // Mass
+            ctx.fillStyle = "#8b949e";
+            ctx.fillRect(curX, groundY - bSize, bSize, bSize);
+        }
+
+        document.getElementById('startBtn').onclick = () => {
+            const A = parseFloat(document.getElementById('ampIn').value);
+            x = A; v = 0; time = 0;
+            chart.options.scales.y.min = -A * 1.1;
+            chart.options.scales.y.max = A * 1.1;
+            chart.data.labels = [];
+            chart.data.datasets[0].data = [];
+            graphData = { t: [], x: [] };
+            isRunning = true; isPaused = false;
+            updatePhysics();
+        };
+
+        document.getElementById('pauseResumeBtn').onclick = (e) => {
+            isPaused = !isPaused;
+            e.target.innerText = isPaused ? "Resume" : "Pause";
+            if (!isPaused) updatePhysics();
+        };
+
+        document.getElementById('stopBtn').onclick = () => {
+            isRunning = false; cancelAnimationFrame(animationId);
+        };
+
+        function exportPNG() {
+            const link = document.createElement('a');
+            link.download = 'shm-graph.png';
+            link.href = document.getElementById('shmGraph').toDataURL();
+            link.click();
+        }
+
+        function exportCSV() {
+            let csv = "Time(s),Displacement(cm)\n";
+            graphData.t.forEach((t, i) => csv += `${t},${graphData.x[i]}\n`);
+            const blob = new Blob([csv], { type: 'text/csv' });
+            const link = document.createElement('a');
+            link.href = URL.createObjectURL(blob);
+            link.download = 'shm_data.csv';
+            link.click();
+        }
+
+        draw();
+    </script>
 </body>
 </html>
