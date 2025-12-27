@@ -470,22 +470,31 @@
     canvas.on('selection:updated', (e) => { if(e.selected[0].type === 'textbox') updateStyleButtons(e.selected[0]); });
 
     // --- KEYBOARD SHORTCUTS ---
+    // --- UPDATED KEYBOARD SHORTCUTS ---
     window.addEventListener('keydown', (e) => {
+        // Determine if user is typing in a graphing input
+        const isGraphingInput = e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT';
         const obj = canvas.getActiveObject();
-        const isEditing = obj && obj.isEditing;
+        const isEditingText = obj && obj.isEditing;
+    
+        // Undo/Redo (Ctrl+Z / Ctrl+Y)
         if (e.ctrlKey || e.metaKey) {
-            if (e.key === 'z') { e.preventDefault(); undo(); }
-            if (e.key === 'y') { e.preventDefault(); redo(); }
-            if (isEditing) {
-                if (e.key === 'b') { e.preventDefault(); formatText('fontWeight', 'bold'); }
-                if (e.key === 'i') { e.preventDefault(); formatText('fontStyle', 'italic'); }
-                if (e.key === 'u') { e.preventDefault(); formatText('underline', true); }
-                if (e.key === '.') { e.preventDefault(); formatText('super', true); } // Ctrl + .
-                if (e.key === ',') { e.preventDefault(); formatText('sub', true); }   // Ctrl + ,
+            if (e.key.toLowerCase() === 'z') {
+                e.preventDefault();
+                undo();
+            }
+            if (e.key.toLowerCase() === 'y') {
+                e.preventDefault();
+                redo();
             }
         }
-        if ((e.key === "Delete" || e.key === "Backspace") && obj && !isEditing) {
-            canvas.remove(...canvas.getActiveObjects()); canvas.discardActiveObject().renderAll();
+    
+        // Delete Logic
+        // Allow Delete/Backspace if we have a selection and NOT currently typing in a text box or graphing input
+        if ((e.key === "Delete" || e.key === "Backspace") && obj && !isEditingText && !isGraphingInput) {
+            e.preventDefault();
+            canvas.remove(...canvas.getActiveObjects());
+            canvas.discardActiveObject().renderAll();
         }
     });
 
