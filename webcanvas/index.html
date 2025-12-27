@@ -3,50 +3,40 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ultimate Teaching Canvas</title>
+    <title>Teaching Canvas</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
     <style>
-        /* 1. LAYOUT & GRID STYLES */
-        body, html { margin: 0; padding: 0; overflow: hidden; background: #f8f8f8; }
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #f8f8f8; font-family: sans-serif; }
         
         #canvas-container {
-            width: 100vw;
-            height: 100vh;
-            overflow-y: auto;
-            overflow-x: hidden;
-            /* Dotted Grid Pattern */
+            width: 100vw; height: 100vh; overflow-y: auto; overflow-x: hidden;
             background-image: radial-gradient(#ccc 1px, transparent 1px);
-            background-size: 30px 30px;
-            position: relative;
+            background-size: 30px 30px; position: relative;
         }
 
-        canvas { display: block; }
-
-        /* 2. PANEL STYLES */
         #tool-panel {
-            position: fixed; left: 0; top: 50%;
-            transform: translateY(-50%);
-            width: 35px; background: white;
-            border: 1px solid #ddd; border-radius: 0 10px 10px 0;
-            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-            transition: width 0.3s ease; z-index: 1000;
-            padding: 10px 5px; display: flex;
-            flex-direction: column; align-items: center;
-            overflow: hidden;
+            position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+            width: 40px; background: white; border: 1px solid #ddd;
+            border-radius: 0 10px 10px 0; box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            transition: width 0.3s ease; z-index: 1000; padding: 10px 5px;
+            display: flex; flex-direction: column; align-items: center; overflow: hidden;
         }
-        #tool-panel:hover { width: 80px; }
+        #tool-panel:hover { width: 90px; }
 
         .tool {
-            font-size: 20px; margin: 8px 0; cursor: pointer;
-            color: #888; width: 45px; height: 45px;
-            display: flex; align-items: center; justify-content: center;
-            border-radius: 8px; transition: 0.2s;
+            font-size: 18px; margin: 6px 0; cursor: pointer; color: #666;
+            width: 40px; height: 40px; display: flex; align-items: center;
+            justify-content: center; border-radius: 8px; transition: 0.2s;
         }
+        .tool:hover { background: #f0f0f0; }
         .tool.active { color: white; background: #4A90E2; }
-        .panel-divider { width: 80%; border: 0; border-top: 1px solid #eee; margin: 10px 0; }
+        .panel-divider { width: 80%; border: 0; border-top: 1px solid #eee; margin: 8px 0; }
         
-        input, select { width: 50px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px; }
+        input, select { width: 50px; margin: 4px 0; border: 1px solid #ddd; border-radius: 4px; font-size: 10px; }
+        .export-btn { color: #27ae60; }
+        .shape-btn { color: #8e44ad; }
     </style>
 </head>
 <body>
@@ -59,16 +49,17 @@
         <div class="tool" id="text-btn" title="Text Box"><i class="fas fa-font"></i></div>
         
         <hr class="panel-divider">
+        <div class="tool shape-btn" id="rect-btn" title="Rectangle"><i class="fas fa-square"></i></div>
+        <div class="tool shape-btn" id="circle-btn" title="Circle"><i class="fas fa-circle"></i></div>
+        
+        <hr class="panel-divider">
         <input type="color" id="colorPicker" value="#000000">
         <input type="number" id="sizePicker" value="5" min="1">
-        <select id="fontPicker">
-            <option value="Arial">Arial</option>
-            <option value="Courier New">Mono</option>
-            <option value="Times New Roman">Serif</option>
-        </select>
+        <select id="fontPicker"><option value="Arial">Arial</option><option value="Courier">Mono</option></select>
 
         <hr class="panel-divider">
-        <div class="tool" id="clear-btn" style="color:#e74c3c"><i class="fas fa-trash-alt"></i></div>
+        <div class="tool export-btn" id="pdf-btn" title="Export PDF"><i class="fas fa-file-pdf"></i></div>
+        <div class="tool" id="clear-btn" style="color:#e74c3c" title="Clear All"><i class="fas fa-trash-alt"></i></div>
     </div>
 
     <div id="canvas-container">
@@ -76,29 +67,18 @@
     </div>
 
     <script>
-        // 1. CANVAS INITIALIZATION
+        const { jsPDF } = window.jspdf;
         const container = document.getElementById('canvas-container');
         const canvas = new fabric.Canvas('c', {
             width: window.innerWidth,
             height: 4000, 
             isDrawingMode: true,
-            backgroundColor: null // Keeps it transparent to show CSS dots
+            backgroundColor: null 
         });
 
-        // 2. INFINITE SCROLL LOGIC
-        container.addEventListener('scroll', () => {
-            const scrollBottom = container.scrollTop + container.clientHeight;
-            if (scrollBottom > canvas.getHeight() - 800) {
-                canvas.setHeight(canvas.getHeight() + 2000);
-                canvas.renderAll();
-            }
-        });
-
-        // 3. TOOL & BRUSH LOGIC
         let currentMode = 'pen';
         const colorInp = document.getElementById('colorPicker');
         const sizeInp = document.getElementById('sizePicker');
-        const fontInp = document.getElementById('fontPicker');
 
         function hexToRgba(hex, opacity) {
             const r = parseInt(hex.slice(1, 3), 16),
@@ -108,7 +88,7 @@
         }
 
         function applyBrushSettings() {
-            canvas.isDrawingMode = (currentMode !== 'text');
+            canvas.isDrawingMode = (['pen', 'pencil', 'marker', 'eraser'].includes(currentMode));
             if (!canvas.isDrawingMode) return;
 
             canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
@@ -126,65 +106,81 @@
                 canvas.freeDrawingBrush.width = size * 5;
                 canvas.freeDrawingBrush.strokeLineCap = 'square';
             } else if (currentMode === 'eraser') {
-                // Reliable White Paint Eraser
                 canvas.freeDrawingBrush.color = '#f8f8f8';
                 canvas.freeDrawingBrush.width = size * 10;
             }
         }
 
-        // 4. UI HANDLERS
-        const btns = { 'pen-btn':'pen', 'pencil-btn':'pencil', 'marker-btn':'marker', 'eraser-btn':'eraser', 'text-btn':'text' };
-        
-        Object.keys(btns).forEach(id => {
+        // TOOL SWITCHER
+        const buttons = ['pen-btn', 'pencil-btn', 'marker-btn', 'eraser-btn', 'text-btn', 'rect-btn', 'circle-btn'];
+        buttons.forEach(id => {
             document.getElementById(id).onclick = () => {
-                currentMode = btns[id];
+                currentMode = id.replace('-btn', '');
                 document.querySelectorAll('.tool').forEach(t => t.classList.remove('active'));
                 document.getElementById(id).classList.add('active');
                 
-                if (currentMode === 'text') {
-                    canvas.isDrawingMode = false;
-                    addText();
-                } else {
-                    applyBrushSettings();
-                }
+                if (currentMode === 'text') { addText(); }
+                else if (currentMode === 'rect') { addShape('rect'); }
+                else if (currentMode === 'circle') { addShape('circle'); }
+                
+                applyBrushSettings();
             };
         });
 
+        // ADD SHAPES
+        function addShape(type) {
+            canvas.isDrawingMode = false;
+            let shape;
+            const config = {
+                left: 150, top: container.scrollTop + 150,
+                fill: hexToRgba(colorInp.value, 0.5),
+                stroke: colorInp.value, strokeWidth: 2,
+                width: 100, height: 100
+            };
+
+            if (type === 'rect') shape = new fabric.Rect(config);
+            else if (type === 'circle') shape = new fabric.Circle({...config, radius: 50});
+            
+            canvas.add(shape);
+            canvas.setActiveObject(shape);
+        }
+
         function addText() {
-            const text = new fabric.Textbox('Edit Me', {
-                left: 150,
-                top: container.scrollTop + 150,
-                width: 250,
-                fontSize: 40,
-                fill: colorInp.value,
-                fontFamily: fontInp.value
+            canvas.isDrawingMode = false;
+            const text = new fabric.Textbox('Type...', {
+                left: 150, top: container.scrollTop + 150,
+                fontSize: 30, fill: colorInp.value
             });
             canvas.add(text);
             canvas.setActiveObject(text);
         }
 
-        // 5. DYNAMIC UPDATES & KEYBOARD
-        colorInp.oninput = applyBrushSettings;
-        sizeInp.oninput = applyBrushSettings;
-
-        window.addEventListener('keydown', (e) => {
-            if ((e.key === "Delete" || e.key === "Backspace")) {
-                const activeObjects = canvas.getActiveObjects();
-                const isTyping = activeObjects.some(obj => obj.isEditing);
-                if (activeObjects.length > 0 && !isTyping) {
-                    canvas.remove(...activeObjects);
-                    canvas.discardActiveObject().renderAll();
-                }
-            }
-        });
-
-        document.getElementById('clear-btn').onclick = () => {
-            if(confirm("Clear board?")) { canvas.clear(); applyBrushSettings(); }
+        // EXPORT TO PDF
+        document.getElementById('pdf-btn').onclick = () => {
+            const dataURL = canvas.toDataURL({ format: 'png', quality: 1 });
+            const pdf = new jsPDF('p', 'px', [canvas.width, canvas.height]);
+            pdf.addImage(dataURL, 'PNG', 0, 0, canvas.width, canvas.height);
+            pdf.save("teaching-notes.pdf");
         };
 
-        window.addEventListener('resize', () => canvas.setWidth(window.innerWidth));
+        // Standard logic remains (Scroll, Delete, Clear)
+        container.onscroll = () => {
+            if (container.scrollTop + container.clientHeight > canvas.getHeight() - 800) {
+                canvas.setHeight(canvas.getHeight() + 2000);
+            }
+        };
 
-        applyBrushSettings(); // Load default
+        window.onkeydown = (e) => {
+            if ((e.key === "Delete" || e.key === "Backspace") && canvas.getActiveObject() && !canvas.getActiveObject().isEditing) {
+                canvas.remove(...canvas.getActiveObjects());
+                canvas.discardActiveObject().renderAll();
+            }
+        };
+
+        document.getElementById('clear-btn').onclick = () => { if(confirm("Clear board?")) canvas.clear(); applyBrushSettings(); };
+        colorInp.oninput = applyBrushSettings;
+        sizeInp.oninput = applyBrushSettings;
+        applyBrushSettings();
     </script>
 </body>
 </html>
