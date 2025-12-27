@@ -1,49 +1,23 @@
-#tool-panel {
-    position: fixed;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 25px;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 0 10px 10px 0;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-    transition: width 0.3s ease;
-    z-index: 1000;
-    padding: 15px 5px;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
+#graph-launcher {
+    position: fixed; right: 20px; top: 20px;
+    width: 50px; height: 50px; background: white;
+    border: 2px solid #4A90E2; border-radius: 50%;
+    display: flex; align-items: center; justify-content: center;
+    cursor: pointer; z-index: 2000; transition: transform 0.2s;
+}
+#graph-launcher:hover { transform: scale(1.2); }
+
+#graph-widget {
+    position: fixed; top: 7.5%; left: 7.5%;
+    width: 85%; height: 85%; background: white;
+    border-radius: 15px; box-shadow: 0 0 30px rgba(0,0,0,0.3);
+    z-index: 3000; display: none; flex-direction: column; overflow: hidden;
 }
 
-#tool-panel:hover { width: 60px; }
+#graph-header { background: #4A90E2; color: white; padding: 15px; display: flex; justify-content: space-between; align-items: center; }
+#graph-body { display: flex; flex: 1; height: calc(100% - 60px); }
+#graph-sidebar { width: 250px; border-right: 1px solid #ddd; padding: 15px; overflow-y: auto; }
+#chart-container { flex: 1; padding: 20px; background: white; }
 
-.tool {
-    font-size: 20px;
-    margin: 12px 0;
-    cursor: pointer;
-    color: #999;
-    width: 40px;
-    height: 40px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    border-radius: 8px;
-    transition: all 0.2s;
-}
-
-/* The active selection color */
-.tool.active {
-    color: white;
-    background-color: #4A90E2;
-}
-
-.panel-divider { width: 80%; border: 0; border-top: 1px solid #eee; margin: 10px 0; }
-
-#size-input {
-    width: 40px;
-    text-align: center;
-    border: 1px solid #ddd;
-    border-radius: 4px;
-    padding: 2px;
-}
+#function-list { margin-top: 15px; }
+.func-item { display: flex; align-items: center; gap: 5px; margin-bottom: 8px; font-size: 12px; }
