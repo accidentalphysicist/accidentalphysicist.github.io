@@ -66,19 +66,21 @@ function removeRow(id) {
     syncGraph();
 }
 
+/**
+ * Plots the function with high-performance range handling
+ */
 function syncGraph() {
     if (!chart) return;
-    const xMin = parseFloat(document.getElementById('xMin').value) || -10;
-    const xMax = parseFloat(document.getElementById('xMax').value) || 10;
-    const yMin = document.getElementById('yMin').value;
-    const yMax = document.getElementById('yMax').value;
+
+    // Use large defaults if inputs are empty to simulate "infinite" scrollable space
+    const xMin = document.getElementById('xMin').value === "" ? -100 : parseFloat(document.getElementById('xMin').value);
+    const xMax = document.getElementById('xMax').value === "" ? 100 : parseFloat(document.getElementById('xMax').value);
     const deltaX = parseFloat(document.getElementById('deltaX').value) || 0.5;
 
-    chart.options.plugins.title.text = document.getElementById('graphTitle').value;
-    chart.options.scales.x.title.text = document.getElementById('xLabel').value || 'x';
-    chart.options.scales.y.title.text = document.getElementById('yLabel').value || 'y';
-
-    // Manual Y limits if provided
+    // Reset scales for "Auto" behavior unless user specified limits
+    const yMin = document.getElementById('yMin').value;
+    const yMax = document.getElementById('yMax').value;
+    
     chart.options.scales.y.min = yMin !== "" ? parseFloat(yMin) : undefined;
     chart.options.scales.y.max = yMax !== "" ? parseFloat(yMax) : undefined;
 
@@ -96,8 +98,12 @@ function syncGraph() {
         try {
             const compiled = math.compile(exp);
             const pts = [];
+            
+            // Generate points. Math.js handles asymptotic behavior (like 1/x) gracefully.
             for (let x = xMin; x <= xMax; x = +(x + deltaX).toFixed(10)) {
                 let y = compiled.evaluate({ x: x });
+                
+                // Check for valid numbers (avoids Infinity/NaN issues in the chart)
                 if (typeof y === 'number' && isFinite(y)) {
                     pts.push({ x: x, y: y });
                     if (!tableData[x]) tableData[x] = {};
@@ -114,10 +120,10 @@ function syncGraph() {
                 fill: false,
                 tension: 0.2
             });
-        } catch (e) { console.error(e); }
+        } catch (e) { console.error("Plot Error:", e); }
     });
 
-    chart.update();
+    chart.update('none'); // Update without animation for "live" feel
     renderTable(tableData);
 }
 
