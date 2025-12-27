@@ -190,7 +190,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Advanced Vector Whiteboard</title>
+    <title>Advanced Teaching Whiteboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -208,10 +208,9 @@
             transition: width 0.3s; z-index: 1000; padding: 10px 5px;
             display: flex; flex-direction: column; align-items: center;
         }
-        #tool-panel:hover { width: 105px; }
+        #tool-panel:hover { width: 110px; }
         .tool { font-size: 18px; margin: 4px 0; cursor: pointer; color: #666; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
         .tool.active { color: white; background: #4A90E2; }
-        
         #shape-tray {
             position: fixed; left: -250px; top: 50%; transform: translateY(-50%);
             width: 200px; background: white; border: 1px solid #ddd; border-radius: 10px;
@@ -222,7 +221,7 @@
         .shape-opt { font-size: 11px; padding: 5px; cursor: pointer; text-align: center; border: 1px solid #eee; background: #fafafa; }
         .text-styles { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin-top: 5px; }
         .style-btn { font-size: 12px; cursor: pointer; padding: 2px 5px; border: 1px solid #ddd; border-radius: 3px; background: #eee; }
-        input, select { width: 60px; margin: 4px 0; font-size: 11px; }
+        input, select { width: 70px; margin: 4px 0; font-size: 11px; }
     </style>
 </head>
 <body>
@@ -236,10 +235,10 @@
     <div class="tool" id="text-btn" onclick="setMode('text')"><i class="fas fa-font"></i></div>
     
     <div class="text-styles">
-        <div class="style-btn" onclick="formatText('bold')"><b>B</b></div>
-        <div class="style-btn" onclick="formatText('italic')"><i>I</i></div>
-        <div class="style-btn" onclick="formatText('sup')">x²</div>
-        <div class="style-btn" onclick="formatText('sub')">x₂</div>
+        <div class="style-btn" onclick="formatText('bold')" title="Ctrl+B">B</div>
+        <div class="style-btn" onclick="formatText('italic')" title="Ctrl+I">I</div>
+        <div class="style-btn" onclick="formatText('sup')" title="Ctrl+.">x²</div>
+        <div class="style-btn" onclick="formatText('sub')" title="Ctrl+,">x₂</div>
     </div>
 
     <hr style="width:80%">
@@ -247,7 +246,9 @@
     <input type="number" id="sizePicker" value="5" min="1">
     <select id="fontPicker">
         <option value="Arial">Arial</option>
-        <option value="Courier New">Mono</option>
+        <option value="Courier New">Monospace</option>
+        <option value="Times New Roman">Serif</option>
+        <option value="Verdana">Verdana</option>
         <option value="Comic Sans MS">Comic</option>
     </select>
     
@@ -278,28 +279,73 @@
     const colorInp = document.getElementById('colorPicker');
     const sizeInp = document.getElementById('sizePicker');
 
-    // --- ERASER LOGIC: ACTUAL REMOVAL ---
-    canvas.on('mouse:move', function(options) {
-        if (currentMode === 'eraser' && options.e.buttons === 1) {
-            const pointer = canvas.getPointer(options.e);
-            // Check for objects within a small radius of the cursor
-            const objects = canvas.getObjects();
-            objects.forEach(obj => {
-                if (obj.containsPoint(pointer)) {
-                    canvas.remove(obj);
-                    canvas.renderAll();
-                }
-            });
+    // --- UNDO / REDO SYSTEM ---
+    let history = [];
+    let redoStack = [];
+    let isResetting = false;
+
+    function saveHistory() {
+        if (isResetting) return;
+        history.push(JSON.stringify(canvas));
+        redoStack = []; // Clear redo when new action happens
+    }
+
+    canvas.on('object:added', saveHistory);
+    canvas.on('object:modified', saveHistory);
+    canvas.on('path:created', saveHistory);
+
+    function undo() {
+        if (history.length <= 1) return;
+        isResetting = true;
+        redoStack.push(history.pop());
+        const lastState = history[history.length - 1];
+        canvas.loadFromJSON(lastState, () => {
+            canvas.renderAll();
+            isResetting = false;
+        });
+    }
+
+    function redo() {
+        if (redoStack.length === 0) return;
+        isResetting = true;
+        const state = redoStack.pop();
+        history.push(state);
+        canvas.loadFromJSON(state, () => {
+            canvas.renderAll();
+            isResetting = false;
+        });
+    }
+
+    // --- KEYBOARD SHORTCUTS ---
+    window.addEventListener('keydown', (e) => {
+        const obj = canvas.getActiveObject();
+        const isEditing = obj && obj.isEditing;
+
+        if (e.ctrlKey || e.metaKey) {
+            if (e.key === 'z') { e.preventDefault(); undo(); }
+            if (e.key === 'r' || e.key === 'y') { e.preventDefault(); redo(); }
+            
+            if (isEditing) {
+                if (e.key === 'b') { e.preventDefault(); formatText('bold'); }
+                if (e.key === 'i') { e.preventDefault(); formatText('italic'); }
+                if (e.key === 'u') { e.preventDefault(); formatText('underline'); }
+                if (e.key === '.') { e.preventDefault(); formatText('sup'); }
+                if (e.key === ',') { e.preventDefault(); formatText('sub'); }
+            }
+        }
+        
+        if ((e.key === "Delete" || e.key === "Backspace") && obj && !isEditing) {
+            canvas.remove(...canvas.getActiveObjects());
+            canvas.discardActiveObject().renderAll();
         }
     });
 
+    // --- CORE TOOLS ---
     function setMode(mode) {
         currentMode = mode;
         document.querySelectorAll('.tool').forEach(t => t.classList.remove('active'));
         if(document.getElementById(`${mode}-btn`)) document.getElementById(`${mode}-btn`).classList.add('active');
-        
-        // Disable internal drawing mode for eraser so we can use our custom logic
-        canvas.isDrawingMode = (['pen', 'pencil', 'marker'].includes(mode));
+        canvas.isDrawingMode = (['pen', 'pencil', 'marker', 'eraser'].includes(mode));
         if (mode === 'text') addText();
         if (canvas.isDrawingMode) applyBrush();
     }
@@ -310,36 +356,26 @@
         if (currentMode === 'pen') { canvas.freeDrawingBrush.color = color; canvas.freeDrawingBrush.width = size; }
         else if (currentMode === 'pencil') { canvas.freeDrawingBrush.color = color + '80'; canvas.freeDrawingBrush.width = size * 0.7; }
         else if (currentMode === 'marker') { canvas.freeDrawingBrush.color = color + '4D'; canvas.freeDrawingBrush.width = size * 6; canvas.freeDrawingBrush.strokeLineCap = 'square'; }
+        else if (currentMode === 'eraser') { canvas.freeDrawingBrush.color = '#f8f8f8'; canvas.freeDrawingBrush.width = size * 10; }
     }
 
     function formatText(style) {
         const obj = canvas.getActiveObject();
         if (!obj || obj.type !== 'textbox') return;
+        
         if (style === 'bold') obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold');
-        if (style === 'italic') obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic');
-        if (style === 'sup' || style === 'sub') {
-            obj.setSelectionStyles({ fontSize: 15, deltaY: style === 'sup' ? -10 : 10 });
+        else if (style === 'italic') obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic');
+        else if (style === 'underline') obj.set('underline', !obj.underline);
+        else if (style === 'sup' || style === 'sub') {
+            // Toggle logic: If already formatted, return to normal
+            const isFormatted = obj.getSelectionStyles()[0]?.fontSize < 20;
+            obj.setSelectionStyles({ 
+                fontSize: isFormatted ? 30 : 18, 
+                deltaY: isFormatted ? 0 : (style === 'sup' ? -10 : 10) 
+            });
         }
         canvas.renderAll();
     }
-
-    // CLIPBOARD SUPPORT
-    window.addEventListener('paste', function(e) {
-        const items = e.clipboardData.items;
-        for (let i = 0; i < items.length; i++) {
-            if (items[i].type.indexOf('image') !== -1) {
-                const blob = items[i].getAsFile();
-                const reader = new FileReader();
-                reader.onload = function(event) {
-                    fabric.Image.fromURL(event.target.result, function(img) {
-                        img.scale(0.5).set({ left: 200, top: container.scrollTop + 100 });
-                        canvas.add(img);
-                    });
-                };
-                reader.readAsDataURL(blob);
-            }
-        }
-    });
 
     function toggleTray() { document.getElementById('shape-tray').classList.toggle('visible'); }
 
@@ -370,10 +406,12 @@
         });
     }
 
-    function clearBoard() { if(confirm("Clear?")) canvas.clear(); applyBrush(); }
+    function clearBoard() { if(confirm("Clear?")) { canvas.clear(); history = [JSON.stringify(canvas)]; applyBrush(); } }
     colorInp.oninput = applyBrush; sizeInp.oninput = applyBrush;
     container.onscroll = () => { if(container.scrollTop + container.clientHeight > canvas.getHeight() - 800) canvas.setHeight(canvas.getHeight() + 2000); };
-    window.onkeydown = (e) => { if((e.key === "Delete" || e.key === "Backspace") && canvas.getActiveObject() && !canvas.getActiveObject().isEditing) canvas.remove(...canvas.getActiveObjects()); };
+    
+    // Initial state
+    history.push(JSON.stringify(canvas));
     applyBrush();
 </script>
 </body>
