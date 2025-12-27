@@ -2,20 +2,9 @@
     width: 100vw;
     height: 100vh;
     overflow-y: auto;
-    position: relative;
-    /* This creates the gray grid lines */
-    background-color: #f8f8f8; 
+    background-color: #f8f8f8;
     background-image: 
         linear-gradient(rgba(200, 200, 200, 0.3) 1px, transparent 1px),
         linear-gradient(90deg, rgba(200, 200, 200, 0.3) 1px, transparent 1px);
     background-size: 40px 40px;
-}
-
-/* Ensure the canvas doesn't have its own solid background */
-canvas {
-    background-color: transparent !important;
-}
-
-.canvas-container {
-    background-color: transparent !important;
 }
