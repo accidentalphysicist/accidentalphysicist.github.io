@@ -84,7 +84,39 @@
 </div>
 
 <div id="canvas-container" class="show-grid"><canvas id="c"></canvas></div>
+<div id="graph-launcher" title="Open Graphing Widget">
+    <i class="fas fa-chart-line"></i>
+</div>
 
+<div id="graph-widget">
+    <div id="graph-header">
+        <span>Graphing Calculator</span>
+        <div id="graph-actions">
+            <button onclick="copyGraph()">Copy to Canvas</button>
+            <button onclick="downloadGraph()">Download PNG</button>
+            <button onclick="toggleGraphWidget()" style="background:#e74c3c">Close</button>
+        </div>
+    </div>
+    
+    <div id="graph-body">
+        <div id="graph-sidebar">
+            <input type="text" id="funcInput" placeholder="Enter function (e.g., x^2)">
+            <button onclick="addFunction()">Plot Function</button>
+            <div id="function-list"></div>
+            
+            <hr>
+            <div class="toggle-label">X-Range: <input type="number" id="xMin" value="-10"> to <input type="number" id="xMax" value="10"></div>
+            <div class="toggle-label"><input type="checkbox" id="shadeArea"> Shade Area (AUC)</div>
+            <button onclick="clearGraphs()" style="margin-top:10px">Clear All</button>
+        </div>
+        <div id="chart-container">
+            <canvas id="graphCanvas"></canvas>
+        </div>
+    </div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
 <script>
     const { jsPDF } = window.jspdf;
     const container = document.getElementById('canvas-container');
