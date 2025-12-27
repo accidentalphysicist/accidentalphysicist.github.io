@@ -190,7 +190,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Advanced Teaching Whiteboard</title>
+    <title>Professional Teaching Whiteboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -198,8 +198,12 @@
         body, html { margin: 0; padding: 0; overflow: hidden; background: #f8f8f8; font-family: sans-serif; }
         #canvas-container {
             width: 100vw; height: 100vh; overflow-y: auto; overflow-x: hidden;
+            background-color: #f8f8f8; position: relative;
+        }
+        /* Dotted Grid Class */
+        .show-grid {
             background-image: radial-gradient(#ccc 1px, transparent 1px);
-            background-size: 30px 30px; position: relative;
+            background-size: 30px 30px;
         }
         #tool-panel {
             position: fixed; left: 0; top: 50%; transform: translateY(-50%);
@@ -220,8 +224,9 @@
         #shape-tray.visible { left: 55px; }
         .shape-opt { font-size: 11px; padding: 5px; cursor: pointer; text-align: center; border: 1px solid #eee; background: #fafafa; }
         .text-styles { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin-top: 5px; }
-        .style-btn { font-size: 12px; cursor: pointer; padding: 2px 5px; border: 1px solid #ddd; border-radius: 3px; background: #eee; }
-        input, select { width: 70px; margin: 4px 0; font-size: 11px; }
+        .style-btn { font-size: 10px; cursor: pointer; padding: 2px 4px; border: 1px solid #ddd; border-radius: 3px; background: #eee; }
+        input, select { width: 75px; margin: 4px 0; font-size: 11px; }
+        .toggle-label { font-size: 9px; color: #666; text-align: center; margin-top: 2px; }
     </style>
 </head>
 <body>
@@ -235,10 +240,10 @@
     <div class="tool" id="text-btn" onclick="setMode('text')"><i class="fas fa-font"></i></div>
     
     <div class="text-styles">
-        <div class="style-btn" onclick="formatText('bold')" title="Ctrl+B">B</div>
-        <div class="style-btn" onclick="formatText('italic')" title="Ctrl+I">I</div>
-        <div class="style-btn" onclick="formatText('sup')" title="Ctrl+.">x²</div>
-        <div class="style-btn" onclick="formatText('sub')" title="Ctrl+,">x₂</div>
+        <div class="style-btn" onclick="formatText('bold')">B</div>
+        <div class="style-btn" onclick="formatText('italic')">I</div>
+        <div class="style-btn" onclick="formatText('sup')">x²</div>
+        <div class="style-btn" onclick="formatText('sub')">x₂</div>
     </div>
 
     <hr style="width:80%">
@@ -246,7 +251,7 @@
     <input type="number" id="sizePicker" value="5" min="1">
     <select id="fontPicker">
         <option value="Arial">Arial</option>
-        <option value="Courier New">Monospace</option>
+        <option value="Courier New">Mono</option>
         <option value="Times New Roman">Serif</option>
         <option value="Verdana">Verdana</option>
         <option value="Comic Sans MS">Comic</option>
@@ -254,7 +259,9 @@
     
     <hr style="width:80%">
     <div class="tool" id="shapes-toggle" onclick="toggleTray()" style="color:#8e44ad"><i class="fas fa-shapes"></i></div>
-    <div style="font-size: 9px;"><input type="checkbox" id="fillShapes"> Fill</div>
+    <div class="toggle-label"><input type="checkbox" id="fillShapes"> Fill</div>
+    <div class="toggle-label"><input type="checkbox" id="gridToggle" checked onchange="toggleGrid()"> Grid</div>
+    
     <hr style="width:80%">
     <div class="tool" id="pdf-btn" onclick="exportPDF()" style="color:#27ae60"><i class="fas fa-file-pdf"></i></div>
     <div class="tool" id="clear-btn" onclick="clearBoard()" style="color:#e74c3c"><i class="fas fa-trash-alt"></i></div>
@@ -268,7 +275,7 @@
     <div class="shape-opt" onclick="addShape('axes')">Axes</div>
 </div>
 
-<div id="canvas-container"><canvas id="c"></canvas></div>
+<div id="canvas-container" class="show-grid"><canvas id="c"></canvas></div>
 
 <script>
     const { jsPDF } = window.jspdf;
@@ -279,68 +286,80 @@
     const colorInp = document.getElementById('colorPicker');
     const sizeInp = document.getElementById('sizePicker');
 
-    // --- UNDO / REDO SYSTEM ---
+    // --- ENHANCED PASTE SUPPORT ---
+    window.addEventListener('paste', function(e) {
+        const items = (e.clipboardData || e.originalEvent.clipboardData).items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const blob = items[i].getAsFile();
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    fabric.Image.fromURL(event.target.result, function(img) {
+                        img.scaleToWidth(300);
+                        img.set({ left: 100, top: container.scrollTop + 100 });
+                        canvas.add(img);
+                        canvas.setActiveObject(img);
+                        canvas.renderAll();
+                    });
+                };
+                reader.readAsDataURL(blob);
+            } else if (items[i].type === 'text/plain') {
+                items[i].getAsString(function(text) {
+                    const txt = new fabric.Textbox(text, { 
+                        left: 100, top: container.scrollTop + 100, 
+                        fontSize: 25, width: 300, fill: colorInp.value 
+                    });
+                    canvas.add(txt);
+                    canvas.setActiveObject(txt);
+                });
+            }
+        }
+    });
+
+    // --- UNDO/REDO & SHORTCUTS ---
     let history = [];
     let redoStack = [];
     let isResetting = false;
 
-    function saveHistory() {
-        if (isResetting) return;
-        history.push(JSON.stringify(canvas));
-        redoStack = []; // Clear redo when new action happens
-    }
-
-    canvas.on('object:added', saveHistory);
-    canvas.on('object:modified', saveHistory);
-    canvas.on('path:created', saveHistory);
+    function saveState() { if (!isResetting) { history.push(JSON.stringify(canvas)); redoStack = []; } }
+    canvas.on('object:added', saveState);
+    canvas.on('object:modified', saveState);
+    canvas.on('path:created', saveState);
 
     function undo() {
         if (history.length <= 1) return;
         isResetting = true;
         redoStack.push(history.pop());
-        const lastState = history[history.length - 1];
-        canvas.loadFromJSON(lastState, () => {
-            canvas.renderAll();
-            isResetting = false;
-        });
+        canvas.loadFromJSON(history[history.length - 1], () => { canvas.renderAll(); isResetting = false; });
     }
 
     function redo() {
-        if (redoStack.length === 0) return;
+        if (!redoStack.length) return;
         isResetting = true;
         const state = redoStack.pop();
         history.push(state);
-        canvas.loadFromJSON(state, () => {
-            canvas.renderAll();
-            isResetting = false;
-        });
+        canvas.loadFromJSON(state, () => { canvas.renderAll(); isResetting = false; });
     }
 
-    // --- KEYBOARD SHORTCUTS ---
     window.addEventListener('keydown', (e) => {
         const obj = canvas.getActiveObject();
         const isEditing = obj && obj.isEditing;
-
         if (e.ctrlKey || e.metaKey) {
             if (e.key === 'z') { e.preventDefault(); undo(); }
-            if (e.key === 'r' || e.key === 'y') { e.preventDefault(); redo(); }
-            
+            if (e.key === 'y') { e.preventDefault(); redo(); }
             if (isEditing) {
                 if (e.key === 'b') { e.preventDefault(); formatText('bold'); }
                 if (e.key === 'i') { e.preventDefault(); formatText('italic'); }
-                if (e.key === 'u') { e.preventDefault(); formatText('underline'); }
                 if (e.key === '.') { e.preventDefault(); formatText('sup'); }
                 if (e.key === ',') { e.preventDefault(); formatText('sub'); }
             }
         }
-        
         if ((e.key === "Delete" || e.key === "Backspace") && obj && !isEditing) {
-            canvas.remove(...canvas.getActiveObjects());
-            canvas.discardActiveObject().renderAll();
+            canvas.remove(...canvas.getActiveObjects()); canvas.discardActiveObject().renderAll();
         }
     });
 
-    // --- CORE TOOLS ---
+    // --- TOOLS ---
     function setMode(mode) {
         currentMode = mode;
         document.querySelectorAll('.tool').forEach(t => t.classList.remove('active'));
@@ -359,31 +378,14 @@
         else if (currentMode === 'eraser') { canvas.freeDrawingBrush.color = '#f8f8f8'; canvas.freeDrawingBrush.width = size * 10; }
     }
 
-    function formatText(style) {
-        const obj = canvas.getActiveObject();
-        if (!obj || obj.type !== 'textbox') return;
-        
-        if (style === 'bold') obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold');
-        else if (style === 'italic') obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic');
-        else if (style === 'underline') obj.set('underline', !obj.underline);
-        else if (style === 'sup' || style === 'sub') {
-            // Toggle logic: If already formatted, return to normal
-            const isFormatted = obj.getSelectionStyles()[0]?.fontSize < 20;
-            obj.setSelectionStyles({ 
-                fontSize: isFormatted ? 30 : 18, 
-                deltaY: isFormatted ? 0 : (style === 'sup' ? -10 : 10) 
-            });
-        }
-        canvas.renderAll();
-    }
-
+    function toggleGrid() { container.classList.toggle('show-grid'); }
     function toggleTray() { document.getElementById('shape-tray').classList.toggle('visible'); }
 
     function addShape(type) {
         setMode('select');
         const color = colorInp.value;
         const fill = document.getElementById('fillShapes').checked ? color + '4D' : 'transparent';
-        const common = { left: 200, top: container.scrollTop + 200, fill: fill, stroke: color, strokeWidth: 2 };
+        const common = { left: 150, top: container.scrollTop + 150, fill: fill, stroke: color, strokeWidth: 2 };
         let obj;
         if (type === 'rect') obj = new fabric.Rect({...common, width: 100, height: 60});
         else if (type === 'circle') obj = new fabric.Circle({...common, radius: 40});
@@ -393,8 +395,20 @@
     }
 
     function addText() {
-        const text = new fabric.Textbox('Text', { left: 200, top: container.scrollTop + 200, fill: colorInp.value, fontSize: 30, fontFamily: document.getElementById('fontPicker').value });
+        const text = new fabric.Textbox('Text', { left: 150, top: container.scrollTop + 150, fill: colorInp.value, fontSize: 30, fontFamily: document.getElementById('fontPicker').value });
         canvas.add(text); canvas.setActiveObject(text);
+    }
+
+    function formatText(style) {
+        const obj = canvas.getActiveObject();
+        if (!obj || obj.type !== 'textbox') return;
+        if (style === 'bold') obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold');
+        else if (style === 'italic') obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic');
+        else if (style === 'sup' || style === 'sub') {
+            const isSm = obj.getSelectionStyles()[0]?.fontSize < 20;
+            obj.setSelectionStyles({ fontSize: isSm ? 30 : 18, deltaY: isSm ? 0 : (style === 'sup' ? -10 : 10) });
+        }
+        canvas.renderAll();
     }
 
     function exportPDF() {
@@ -410,7 +424,6 @@
     colorInp.oninput = applyBrush; sizeInp.oninput = applyBrush;
     container.onscroll = () => { if(container.scrollTop + container.clientHeight > canvas.getHeight() - 800) canvas.setHeight(canvas.getHeight() + 2000); };
     
-    // Initial state
     history.push(JSON.stringify(canvas));
     applyBrush();
 </script>
