@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -181,6 +181,201 @@
     container.onscroll = () => { if(container.scrollTop + container.clientHeight > canvas.getHeight() - 800) canvas.setHeight(canvas.getHeight() + 2000); };
     window.onkeydown = (e) => { if((e.key === "Delete" || e.key === "Backspace") && canvas.getActiveObject() && !canvas.getActiveObject().isEditing) canvas.remove(...canvas.getActiveObjects()); };
     
+    applyBrush();
+</script>
+</body>
+</html> -->
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Advanced Teaching Whiteboard</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <style>
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #f8f8f8; font-family: sans-serif; }
+        #canvas-container {
+            width: 100vw; height: 100vh; overflow-y: auto; overflow-x: hidden;
+            background-image: radial-gradient(#ccc 1px, transparent 1px);
+            background-size: 30px 30px; position: relative;
+        }
+        #tool-panel {
+            position: fixed; left: 0; top: 50%; transform: translateY(-50%);
+            width: 45px; background: white; border: 1px solid #ddd;
+            border-radius: 0 10px 10px 0; box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            transition: width 0.3s; z-index: 1000; padding: 10px 5px;
+            display: flex; flex-direction: column; align-items: center;
+        }
+        #tool-panel:hover { width: 100px; }
+        .tool { font-size: 18px; margin: 4px 0; cursor: pointer; color: #666; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+        .tool.active { color: white; background: #4A90E2; }
+        
+        #shape-tray {
+            position: fixed; left: -250px; top: 50%; transform: translateY(-50%);
+            width: 200px; background: white; border: 1px solid #ddd; border-radius: 10px;
+            padding: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;
+            transition: left 0.3s; z-index: 999;
+        }
+        #shape-tray.visible { left: 55px; }
+        .shape-opt { font-size: 11px; padding: 5px; cursor: pointer; text-align: center; border: 1px solid #eee; background: #fafafa; }
+
+        .text-styles { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin-top: 5px; }
+        .style-btn { font-size: 12px; cursor: pointer; padding: 2px 5px; border: 1px solid #ddd; border-radius: 3px; background: #eee; }
+        
+        input, select { width: 60px; margin: 4px 0; font-size: 11px; }
+    </style>
+</head>
+<body>
+
+<div id="tool-panel">
+    <div class="tool" id="select-btn" onclick="setMode('select')"><i class="fas fa-mouse-pointer"></i></div>
+    <div class="tool active" id="pen-btn" onclick="setMode('pen')"><i class="fas fa-pen"></i></div>
+    <div class="tool" id="pencil-btn" onclick="setMode('pencil')"><i class="fas fa-pencil-alt"></i></div>
+    <div class="tool" id="marker-btn" onclick="setMode('marker')"><i class="fas fa-highlighter"></i></div>
+    <div class="tool" id="eraser-btn" onclick="setMode('eraser')"><i class="fas fa-eraser"></i></div>
+    <div class="tool" id="text-btn" onclick="setMode('text')"><i class="fas fa-font"></i></div>
+    
+    <div class="text-styles">
+        <div class="style-btn" onclick="formatText('bold')"><b>B</b></div>
+        <div class="style-btn" onclick="formatText('italic')"><i>I</i></div>
+        <div class="style-btn" onclick="formatText('underline')"><u>U</u></div>
+        <div class="style-btn" onclick="formatText('sup')">x²</div>
+        <div class="style-btn" onclick="formatText('sub')">x₂</div>
+    </div>
+
+    <hr style="width:80%">
+    <input type="color" id="colorPicker" value="#000000">
+    <input type="number" id="sizePicker" value="5" min="1">
+    <select id="fontPicker">
+        <option value="Arial">Arial</option>
+        <option value="Courier New">Mono</option>
+        <option value="Times New Roman">Serif</option>
+        <option value="Verdana">Verdana</option>
+        <option value="Comic Sans MS">Comic</option>
+    </select>
+    
+    <hr style="width:80%">
+    <div class="tool" id="shapes-toggle" onclick="toggleTray()" style="color:#8e44ad"><i class="fas fa-shapes"></i></div>
+    <div style="font-size: 9px;"><input type="checkbox" id="fillShapes"> Fill</div>
+    <hr style="width:80%">
+    <div class="tool" id="pdf-btn" onclick="exportPDF()" style="color:#27ae60"><i class="fas fa-file-pdf"></i></div>
+    <div class="tool" id="clear-btn" onclick="clearBoard()" style="color:#e74c3c"><i class="fas fa-trash-alt"></i></div>
+</div>
+
+<div id="shape-tray">
+    <div class="shape-opt" onclick="addShape('rect')">Rect</div>
+    <div class="shape-opt" onclick="addShape('circle')">Circle</div>
+    <div class="shape-opt" onclick="addShape('line')">Line</div>
+    <div class="shape-opt" onclick="addShape('arrow')">Arrow</div>
+    <div class="shape-opt" onclick="addShape('axes')">Axes</div>
+    <div class="shape-opt" onclick="addShape('star')">Star</div>
+</div>
+
+<div id="canvas-container"><canvas id="c"></canvas></div>
+
+<script>
+    const { jsPDF } = window.jspdf;
+    const container = document.getElementById('canvas-container');
+    const canvas = new fabric.Canvas('c', { width: window.innerWidth, height: 4000, isDrawingMode: true, backgroundColor: null });
+
+    let currentMode = 'pen';
+    const colorInp = document.getElementById('colorPicker');
+    const sizeInp = document.getElementById('sizePicker');
+
+    function setMode(mode) {
+        currentMode = mode;
+        document.querySelectorAll('.tool').forEach(t => t.classList.remove('active'));
+        if(document.getElementById(`${mode}-btn`)) document.getElementById(`${mode}-btn`).classList.add('active');
+        
+        canvas.isDrawingMode = (['pen', 'pencil', 'marker', 'eraser'].includes(mode));
+        if (mode === 'text') addText();
+        if (canvas.isDrawingMode) applyBrush();
+    }
+
+    function applyBrush() {
+        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+        const color = colorInp.value, size = parseInt(sizeInp.value);
+        if (currentMode === 'pen') { canvas.freeDrawingBrush.color = color; canvas.freeDrawingBrush.width = size; }
+        else if (currentMode === 'pencil') { canvas.freeDrawingBrush.color = color + '80'; canvas.freeDrawingBrush.width = size * 0.7; }
+        else if (currentMode === 'marker') { canvas.freeDrawingBrush.color = color + '4D'; canvas.freeDrawingBrush.width = size * 6; canvas.freeDrawingBrush.strokeLineCap = 'square'; }
+        else if (currentMode === 'eraser') { canvas.freeDrawingBrush.color = '#f8f8f8'; canvas.freeDrawingBrush.width = size * 10; }
+    }
+
+    // ADVANCED TEXT FORMATTING
+    function formatText(style) {
+        const obj = canvas.getActiveObject();
+        if (!obj || obj.type !== 'textbox') return;
+        
+        if (style === 'bold') obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold');
+        if (style === 'italic') obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic');
+        if (style === 'underline') obj.set('underline', !obj.underline);
+        
+        // Sub/Superscript logic using selection
+        if (style === 'sup' || style === 'sub') {
+            const val = style === 'sup' ? 'superscript' : 'subscript';
+            obj.setSelectionStyles({ fontSize: 15, deltaY: style === 'sup' ? -10 : 10 });
+        }
+        canvas.renderAll();
+    }
+
+    // CLIPBOARD PASTE SUPPORT
+    window.addEventListener('paste', function(e) {
+        const items = e.clipboardData.items;
+        for (let i = 0; i < items.length; i++) {
+            if (items[i].type.indexOf('image') !== -1) {
+                const blob = items[i].getAsFile();
+                const reader = new FileReader();
+                reader.onload = function(event) {
+                    fabric.Image.fromURL(event.target.result, function(img) {
+                        img.scale(0.5).set({ left: 200, top: container.scrollTop + 100 });
+                        canvas.add(img);
+                    });
+                };
+                reader.readAsDataURL(blob);
+            } else if (items[i].type === 'text/plain') {
+                items[i].getAsString(function(text) {
+                    const txt = new fabric.Textbox(text, { left: 200, top: container.scrollTop + 100, fontSize: 20 });
+                    canvas.add(txt);
+                });
+            }
+        }
+    });
+
+    function toggleTray() { document.getElementById('shape-tray').classList.toggle('visible'); }
+
+    function addShape(type) {
+        setMode('select');
+        const color = colorInp.value;
+        const fill = document.getElementById('fillShapes').checked ? color + '4D' : 'transparent';
+        const common = { left: 200, top: container.scrollTop + 200, fill: fill, stroke: color, strokeWidth: 2 };
+        let obj;
+        if (type === 'rect') obj = new fabric.Rect({...common, width: 100, height: 60});
+        else if (type === 'circle') obj = new fabric.Circle({...common, radius: 40});
+        else if (type === 'axes') obj = new fabric.Path('M 0 100 L 0 0 M 0 0 L -5 10 M 0 0 L 5 10 M 0 100 L 100 100 M 100 100 L 90 95 M 100 100 L 90 105', {...common, fill: 'transparent'});
+        else if (type === 'arrow') obj = new fabric.Path('M 0 0 L 100 0 M 100 0 L 85 -8 M 100 0 L 85 8', {...common, fill: 'transparent'});
+        canvas.add(obj); document.getElementById('shape-tray').classList.remove('visible');
+    }
+
+    function addText() {
+        const text = new fabric.Textbox('Text', { left: 200, top: container.scrollTop + 200, fill: colorInp.value, fontSize: 30, fontFamily: document.getElementById('fontPicker').value });
+        canvas.add(text); canvas.setActiveObject(text);
+    }
+
+    function exportPDF() {
+        canvas.setBackgroundColor('#f8f8f8', () => {
+            const pdf = new jsPDF('p', 'px', [canvas.width, canvas.height]);
+            pdf.addImage(canvas.toDataURL({format: 'png'}), 'PNG', 0, 0, canvas.width, canvas.height);
+            pdf.save("whiteboard.pdf");
+            canvas.setBackgroundColor(null, canvas.renderAll.bind(canvas));
+        });
+    }
+
+    function clearBoard() { if(confirm("Clear?")) canvas.clear(); applyBrush(); }
+    colorInp.oninput = applyBrush; sizeInp.oninput = applyBrush;
+    container.onscroll = () => { if(container.scrollTop + container.clientHeight > canvas.getHeight() - 800) canvas.setHeight(canvas.getHeight() + 2000); };
+    window.onkeydown = (e) => { if((e.key === "Delete" || e.key === "Backspace") && canvas.getActiveObject() && !canvas.getActiveObject().isEditing) canvas.remove(...canvas.getActiveObjects()); };
     applyBrush();
 </script>
 </body>
