@@ -1,6 +1,5 @@
 let chart;
-const defaultColors = ['#4A90E2', '#e74c3c', '#27ae60', '#f1c40f', '#9b59b6', '#8e44ad'];
-let plotConfigs = []; // Stores individual function settings
+const colors = ['#4A90E2', '#e74c3c', '#27ae60', '#f1c40f', '#9b59b6', '#e67e22'];
 
 function toggleGraphWidget() {
     const widget = document.getElementById('graph-widget');
@@ -23,127 +22,84 @@ function initChart() {
             },
             plugins: {
                 title: { display: true, text: '' },
-                legend: { display: true }
+                legend: { display: true, labels: { boxWidth: 12 } }
             }
         }
     });
 }
 
-/**
- * Core Plotting Logic
- */
 function addFunction() {
     const exp = document.getElementById('funcInput').value;
     if (!exp) return;
 
     const xMin = parseFloat(document.getElementById('xMin').value) || -10;
     const xMax = parseFloat(document.getElementById('xMax').value) || 10;
-    const deltaX = parseFloat(document.getElementById('deltaX')?.value) || 0.1;
-    const color = defaultColors[chart.data.datasets.length % defaultColors.length];
+    const step = parseFloat(document.getElementById('deltaX').value) || 0.1;
+    
+    // Apply Global Labels
+    chart.options.plugins.title.text = document.getElementById('graphTitle').value;
+    chart.options.scales.x.title.text = document.getElementById('xLabel').value || 'x';
+    chart.options.scales.y.title.text = document.getElementById('yLabel').value || 'y';
 
     try {
-        const node = math.parse(exp);
-        const code = node.compile();
-        const dataPoints = [];
-
-        // Generate Data
-        for (let x = xMin; x <= xMax; x += deltaX) {
-            let y = code.evaluate({ x: x });
+        const data = [];
+        for (let x = xMin; x <= xMax; x += step) {
+            const y = math.evaluate(exp, { x: x });
             if (typeof y === 'number' && isFinite(y)) {
-                dataPoints.push({ x: x, y: y });
+                data.push({ x: x, y: y });
             }
         }
 
-        // Add to Chart
+        const colorIndex = chart.data.datasets.length % colors.length;
         chart.data.datasets.push({
             label: exp,
-            data: dataPoints,
-            borderColor: color,
-            borderDash: [], // Can be changed to [5, 5] for dashed
+            data: data,
+            borderColor: colors[colorIndex],
             backgroundColor: 'transparent',
-            fill: false,
             borderWidth: 2,
-            pointRadius: 0
+            pointRadius: 0,
+            tension: 0.1
         });
 
-        // Update Global Labels
-        chart.options.plugins.title.text = document.getElementById('graphTitle')?.value || "";
-        chart.options.scales.x.title.text = document.getElementById('xLabel')?.value || "x";
-        chart.options.scales.y.title.text = document.getElementById('yLabel')?.value || "y";
-
         chart.update();
-        updateTable();
+        updateTable(data);
     } catch (e) {
-        alert("Invalid math expression. Use 'x' as variable.");
+        alert("Check your math syntax! Example: 2*x^2 + sin(x)");
     }
 }
 
-/**
- * Table Management
- */
-function updateTable() {
-    const tableBody = document.querySelector('#valTable tbody');
-    tableBody.innerHTML = '';
-    
-    // We show values for the last added function
-    if (chart.data.datasets.length === 0) return;
-    const lastData = chart.data.datasets[chart.data.datasets.length - 1].data;
-    
-    // Limit table display to avoid crashing browser (first 50 points)
-    lastData.slice(0, 50).forEach(pt => {
-        tableBody.innerHTML += `<tr><td>${pt.x.toFixed(2)}</td><td>${pt.y.toFixed(2)}</td></tr>`;
-    });
-}
-
-function exportTableToCanvas() {
-    // Create a temporary HTML/Canvas to draw the table text
-    const canvasTemp = document.createElement('canvas');
-    const ctx = canvasTemp.getContext('2d');
-    canvasTemp.width = 300;
-    canvasTemp.height = 500;
-    
-    ctx.fillStyle = document.getElementById('colorPicker').value || 'black';
-    ctx.font = "16px Arial";
-    ctx.fillText("Table of Values", 10, 30);
-    
-    let yPos = 60;
-    const lastData = chart.data.datasets[chart.data.datasets.length - 1].data.slice(0, 15);
-    lastData.forEach(pt => {
-        ctx.fillText(`x: ${pt.x.toFixed(2)} | y: ${pt.y.toFixed(2)}`, 10, yPos);
-        yPos += 25;
-    });
-
-    const dataURL = canvasTemp.toDataURL();
-    fabric.Image.fromURL(dataURL, function(img) {
-        img.set({ left: 400, top: container.scrollTop + 100 });
-        canvas.add(img);
-        toggleGraphWidget();
+function updateTable(data) {
+    const tbody = document.querySelector('#valTable tbody');
+    tbody.innerHTML = '';
+    // Display first 20 points to keep UI fast
+    data.slice(0, 20).forEach(pt => {
+        tbody.innerHTML += `<tr><td>${pt.x.toFixed(2)}</td><td>${pt.y.toFixed(2)}</td></tr>`;
     });
 }
 
 function exportCSV() {
-    if (chart.data.datasets.length === 0) return;
-    const data = chart.data.datasets[chart.data.datasets.length - 1].data;
-    let csvContent = "data:text/csv;charset=utf-8,x,y\n" + data.map(e => `${e.x},${e.y}`).join("\n");
-    const encodedUri = encodeURI(csvContent);
-    const link = document.createElement("a");
-    link.setAttribute("href", encodedUri);
-    link.setAttribute("download", "graph_data.csv");
-    document.body.appendChild(link);
-    link.click();
-}
-
-function clearGraphs() {
-    chart.data.datasets = [];
-    chart.update();
-    updateTable();
+    if (!chart.data.datasets.length) return;
+    const lastData = chart.data.datasets[chart.data.datasets.length - 1].data;
+    let csv = "x,y\n" + lastData.map(p => `${p.x},${p.y}`).join("\n");
+    const blob = new Blob([csv], { type: 'text/csv' });
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'graph_data.csv';
+    a.click();
 }
 
 function copyGraph() {
     const dataURL = chart.toBase64Image();
     fabric.Image.fromURL(dataURL, function(img) {
-        img.scale(0.8).set({ left: 150, top: container.scrollTop + 100 });
+        img.scale(0.8).set({ left: 100, top: container.scrollTop + 100 });
         canvas.add(img);
         toggleGraphWidget();
     });
+}
+
+function clearGraphs() {
+    chart.data.datasets = [];
+    chart.update();
+    document.querySelector('#valTable tbody').innerHTML = '';
 }
