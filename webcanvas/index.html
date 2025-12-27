@@ -2,146 +2,41 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Fixed Teaching Canvas</title>
+    <title>Online Teaching Canvas</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/panel.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
-    <style>
-        body, html { margin: 0; padding: 0; overflow: hidden; background: #f8f8f8; }
-        #viewport { width: 100vw; height: 100vh; overflow-y: auto; position: relative; }
-        
-        /* The Grid Layer - Stays behind everything */
-        #grid-layer {
-            position: absolute; top: 0; left: 0; width: 100%; height: 5000px;
-            background-image: 
-                linear-gradient(rgba(200, 200, 200, 0.4) 1px, transparent 1px), 
-                linear-gradient(90deg, rgba(200, 200, 200, 0.4) 1px, transparent 1px);
-            background-size: 40px 40px; z-index: 1; pointer-events: none;
-        }
-
-        /* The Canvas Layer */
-        .canvas-container { z-index: 2 !important; background: transparent !important; }
-
-        #tool-panel {
-            position: fixed; left: 0; top: 50%; transform: translateY(-50%);
-            width: 35px; background: white; border: 1px solid #ddd;
-            border-radius: 0 10px 10px 0; box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-            transition: width 0.3s; z-index: 1000; padding: 10px 5px;
-            display: flex; flex-direction: column; align-items: center; overflow: hidden;
-        }
-        #tool-panel:hover { width: 75px; }
-        .tool { font-size: 20px; margin: 8px 0; cursor: pointer; color: #888; 
-                width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
-        .tool.active { color: white; background: #4A90E2; }
-        input, select { width: 45px; margin: 5px 0; }
-    </style>
 </head>
 <body>
 
-<div id="tool-panel">
-    <div class="tool active" id="pen-btn"><i class="fas fa-pen"></i></div>
-    <div class="tool" id="pencil-btn"><i class="fas fa-pencil-alt"></i></div>
-    <div class="tool" id="marker-btn"><i class="fas fa-highlighter"></i></div>
-    <div class="tool" id="eraser-btn"><i class="fas fa-eraser"></i></div>
-    <div class="tool" id="text-btn"><i class="fas fa-font"></i></div>
-    <hr style="width:80%">
-    <input type="color" id="colorPicker" value="#000000">
-    <input type="number" id="sizePicker" value="5" min="1">
-    <hr style="width:80%">
-    <div class="tool" id="clear-btn" style="color:#e74c3c"><i class="fas fa-trash-alt"></i></div>
-</div>
+    <div id="tool-panel">
+        <div class="tool active" id="pen-tool"><i class="fas fa-pen"></i></div>
+        <div class="tool" id="pencil-tool"><i class="fas fa-pencil-alt"></i></div>
+        <div class="tool" id="marker-tool"><i class="fas fa-highlighter"></i></div>
+        <div class="tool" id="eraser-tool"><i class="fas fa-eraser"></i></div>
+        <div class="tool" id="text-tool"><i class="fas fa-font"></i></div>
+        
+        <hr class="panel-divider">
+        <input type="color" id="color-picker" value="#000000">
+        <input type="number" id="size-input" value="5" min="1">
+        
+        <select id="font-family">
+            <option value="Arial">Arial</option>
+            <option value="Courier New">Monospace</option>
+            <option value="Times New Roman">Serif</option>
+            <option value="Brush Script MT">Cursive</option>
+        </select>
 
-<div id="viewport">
-    <div id="grid-layer"></div>
-    <canvas id="c"></canvas>
-</div>
+        <hr class="panel-divider">
+        <div class="tool" id="clear-btn" style="color:#e74c3c"><i class="fas fa-trash-alt"></i></div>
+    </div>
 
-<script>
-    const viewport = document.getElementById('viewport');
-    const gridLayer = document.getElementById('grid-layer');
-    
-    // Setup Canvas with forced transparency
-    const canvas = new fabric.Canvas('c', {
-        width: window.innerWidth,
-        height: 3000,
-        isDrawingMode: true,
-        backgroundColor: 'rgba(0,0,0,0)', // Explicitly transparent
-        enableRetinaScaling: false // Helps with consistent erasing performance
-    });
+    <div id="canvas-container">
+        <canvas id="teachingCanvas"></canvas>
+    </div>
 
-    let currentMode = 'pen';
-    const colorInp = document.getElementById('colorPicker');
-    const sizeInp = document.getElementById('sizePicker');
-
-    function applyBrush() {
-        canvas.isDrawingMode = (currentMode !== 'text');
-        if (!canvas.isDrawingMode) return;
-
-        // Create a fresh brush instance to clear old composite operations
-        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-        const color = colorInp.value;
-        const size = parseInt(sizeInp.value);
-
-        if (currentMode === 'eraser') {
-            // This cuts through the ink to show the grid
-            canvas.freeDrawingBrush.globalCompositeOperation = 'destination-out';
-            canvas.freeDrawingBrush.width = size * 5;
-            canvas.freeDrawingBrush.color = 'rgba(0,0,0,1)'; // Color is irrelevant in this mode
-        } else {
-            canvas.freeDrawingBrush.globalCompositeOperation = 'source-over';
-            if (currentMode === 'pen') {
-                canvas.freeDrawingBrush.color = color;
-                canvas.freeDrawingBrush.width = size;
-            } else if (currentMode === 'pencil') {
-                canvas.freeDrawingBrush.color = color + '80'; // 50% opacity
-                canvas.freeDrawingBrush.width = size * 0.6;
-            } else if (currentMode === 'marker') {
-                canvas.freeDrawingBrush.color = color + '4D'; // 30% opacity
-                canvas.freeDrawingBrush.width = size * 6;
-                canvas.freeDrawingBrush.strokeLineCap = 'square';
-            }
-        }
-    }
-
-    // Event listeners
-    colorInp.oninput = applyBrush;
-    sizeInp.oninput = applyBrush;
-
-    const btns = { 'pen-btn':'pen', 'pencil-btn':'pencil', 'marker-btn':'marker', 'eraser-btn':'eraser', 'text-btn':'text' };
-    Object.keys(btns).forEach(id => {
-        document.getElementById(id).onclick = () => {
-            currentMode = btns[id];
-            document.querySelectorAll('.tool').forEach(t => t.classList.remove('active'));
-            document.getElementById(id).classList.add('active');
-            if(currentMode === 'text') addText();
-            applyBrush();
-        };
-    });
-
-    document.getElementById('clear-btn').onclick = () => {
-        if(confirm("Clear board?")) { canvas.clear(); applyBrush(); }
-    };
-
-    function addText() {
-        const t = new fabric.Textbox('Text', { left: 100, top: viewport.scrollTop + 50, fill: colorInp.value });
-        canvas.add(t); canvas.setActiveObject(t);
-    }
-
-    // Fixed Infinite Scroll
-    viewport.onscroll = () => {
-        if (viewport.scrollTop + viewport.clientHeight > canvas.getHeight() - 800) {
-            const newHeight = canvas.getHeight() + 1500;
-            canvas.setHeight(newHeight);
-            gridLayer.style.height = newHeight + 'px';
-        }
-    };
-
-    window.onkeydown = (e) => {
-        if ((e.key === 'Delete' || e.key === 'Backspace') && canvas.getActiveObject() && !canvas.getActiveObject().isEditing) {
-            canvas.remove(canvas.getActiveObject());
-        }
-    };
-
-    applyBrush();
-</script>
+    <script src="js/canvas.js"></script>
+    <script src="js/tools.js"></script>
 </body>
 </html>
