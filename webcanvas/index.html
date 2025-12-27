@@ -2,44 +2,179 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Teaching Canvas</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Professional Teaching Canvas</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-    <link rel="stylesheet" href="css/style.css">
-    <link rel="stylesheet" href="css/panel.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
+    <style>
+        /* LAYOUT & GRID */
+        body, html { margin: 0; padding: 0; overflow: hidden; background: #f0f0f0; }
+        
+        #canvas-container {
+            width: 100vw;
+            height: 100vh;
+            overflow-y: auto;
+            background-color: #f8f8f8;
+            /* The Grid */
+            background-image: 
+                linear-gradient(rgba(200, 200, 200, 0.3) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(200, 200, 200, 0.3) 1px, transparent 1px);
+            background-size: 40px 40px;
+        }
+
+        /* TOOL PANEL */
+        #tool-panel {
+            position: fixed;
+            left: 0; top: 50%;
+            transform: translateY(-50%);
+            width: 30px;
+            background: white;
+            border: 1px solid #ddd;
+            border-radius: 0 10px 10px 0;
+            box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+            transition: width 0.3s ease;
+            z-index: 1000;
+            padding: 15px 5px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow: hidden;
+        }
+        #tool-panel:hover { width: 70px; }
+
+        .tool {
+            font-size: 20px;
+            margin: 10px 0;
+            cursor: pointer;
+            color: #888;
+            width: 40px; height: 40px;
+            display: flex; align-items: center; justify-content: center;
+            border-radius: 8px;
+        }
+        .tool.active { color: white; background: #4A90E2; }
+        .panel-divider { width: 80%; border: 0; border-top: 1px solid #eee; margin: 10px 0; }
+        
+        input[type="color"], input[type="number"], select {
+            width: 40px; margin: 5px 0; border: 1px solid #ddd; border-radius: 4px;
+        }
+    </style>
 </head>
 <body>
 
     <div id="tool-panel">
-        <div class="tool active" id="pen-tool"><i class="fas fa-pen"></i></div>
-        <div class="tool" id="pencil-tool"><i class="fas fa-pencil-alt"></i></div>
-        <div class="tool" id="marker-tool"><i class="fas fa-highlighter"></i></div>
-        <div class="tool" id="eraser-tool"><i class="fas fa-eraser"></i></div>
-        <div class="tool" id="text-tool"><i class="fas fa-font"></i></div>
+        <div class="tool active" id="pen-btn" title="Pen"><i class="fas fa-pen"></i></div>
+        <div class="tool" id="pencil-btn" title="Pencil"><i class="fas fa-pencil-alt"></i></div>
+        <div class="tool" id="marker-btn" title="Marker"><i class="fas fa-highlighter"></i></div>
+        <div class="tool" id="eraser-btn" title="Eraser"><i class="fas fa-eraser"></i></div>
+        <div class="tool" id="text-btn" title="Text"><i class="fas fa-font"></i></div>
         
         <hr class="panel-divider">
-
-        <div class="control-item">
-            <input type="color" id="color-picker" value="#000000">
-        </div>
-        <div class="control-item">
-            <input type="number" id="size-input" value="5" min="1">
-        </div>
-        <div class="control-item">
-            <select id="font-family">
-                <option value="Arial">Arial</option>
-                <option value="Courier New">Monospace</option>
-                <option value="Times New Roman">Serif</option>
-            </select>
-        </div>
+        <input type="color" id="colorPicker" value="#000000">
+        <input type="number" id="sizePicker" value="5" min="1">
+        <select id="fontPicker"><option value="Arial">A</option><option value="Serif">S</option></select>
     </div>
 
     <div id="canvas-container">
-        <canvas id="teachingCanvas"></canvas>
+        <canvas id="c"></canvas>
     </div>
 
-    <script src="js/canvas.js"></script>
-    <script src="js/tools.js"></script>
-    <script src="js/text.js"></script>
+    <script>
+        // 1. INITIALIZE CANVAS
+        const container = document.getElementById('canvas-container');
+        const canvas = new fabric.Canvas('c', {
+            width: window.innerWidth,
+            height: 2000, // Start with a tall canvas
+            isDrawingMode: true,
+            backgroundColor: null
+        });
+
+        // 2. INFINITE SCROLL
+        container.addEventListener('scroll', () => {
+            if (container.scrollTop + container.clientHeight >= container.scrollHeight - 500) {
+                canvas.setHeight(canvas.getHeight() + 1000);
+                canvas.renderAll();
+            }
+        });
+
+        // 3. DYNAMIC TOOL LOGIC
+        let currentMode = 'pen';
+        const colorInput = document.getElementById('colorPicker');
+        const sizeInput = document.getElementById('sizePicker');
+
+        function updateBrush() {
+            const color = colorInput.value;
+            const size = parseInt(sizeInput.value);
+            
+            // Standard pencil brush for writing
+            canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+            canvas.freeDrawingBrush.globalCompositeOperation = 'source-over';
+
+            if (currentMode === 'pen') {
+                canvas.freeDrawingBrush.width = size;
+                canvas.freeDrawingBrush.color = color;
+            } else if (currentMode === 'pencil') {
+                canvas.freeDrawingBrush.width = size * 0.4;
+                canvas.freeDrawingBrush.color = hexToRgba(color, 0.5);
+            } else if (currentMode === 'marker') {
+                canvas.freeDrawingBrush.width = size * 4;
+                canvas.freeDrawingBrush.color = hexToRgba(color, 0.3);
+                canvas.freeDrawingBrush.strokeLineCap = 'square';
+            } else if (currentMode === 'eraser') {
+                // Fixed Eraser: Paints the exact background color
+                canvas.freeDrawingBrush.width = size * 4;
+                canvas.freeDrawingBrush.color = '#f8f8f8'; 
+            }
+        }
+
+        // 4. EVENT LISTENERS
+        function setTool(mode, elId) {
+            currentMode = mode;
+            document.querySelectorAll('.tool').forEach(t => t.classList.remove('active'));
+            document.getElementById(elId).classList.add('active');
+            
+            if (mode === 'text') {
+                canvas.isDrawingMode = false;
+                addText();
+            } else {
+                canvas.isDrawingMode = true;
+                updateBrush();
+            }
+        }
+
+        document.getElementById('pen-btn').onclick = () => setTool('pen', 'pen-btn');
+        document.getElementById('pencil-btn').onclick = () => setTool('pencil', 'pencil-btn');
+        document.getElementById('marker-btn').onclick = () => setTool('marker', 'marker-btn');
+        document.getElementById('eraser-btn').onclick = () => setTool('eraser', 'eraser-btn');
+        document.getElementById('text-btn').onclick = () => setTool('text', 'text-btn');
+
+        // Dynamic Updates: No re-clicking needed
+        colorInput.oninput = updateBrush;
+        sizeInput.oninput = updateBrush;
+
+        // 5. TEXT & DELETE LOGIC
+        function addText() {
+            const text = new fabric.Textbox('Click to Edit', {
+                left: 100, top: container.scrollTop + 100,
+                width: 200, fontSize: 30, fill: colorInput.value,
+                fontFamily: document.getElementById('fontPicker').value
+            });
+            canvas.add(text);
+            canvas.setActiveObject(text);
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if ((e.key === "Delete" || e.key === "Backspace") && !canvas.getActiveObject().isEditing) {
+                canvas.remove(...canvas.getActiveObjects());
+                canvas.discardActiveObject().renderAll();
+            }
+        });
+
+        function hexToRgba(hex, opacity) {
+            const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
+            return `rgba(${r},${g},${b},${opacity})`;
+        }
+
+        updateBrush(); // Initial load
+    </script>
 </body>
 </html>
