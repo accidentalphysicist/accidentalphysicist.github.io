@@ -1,37 +1,68 @@
+const sizeInput = document.getElementById('size-input');
 const colorPicker = document.getElementById('color-picker');
-const sizeSlider = document.getElementById('size-slider');
-
-// Set initial brush
-canvas.isDrawingMode = true;
+<script src="https://unpkg.com/fabric-eraser-brush"></script>
+// 1. Fix: Eraser that doesn't hide the grid
+// We use Fabric's built-in EraserBrush (if available) or a "destination-out" mode
+// For standard Fabric 5.x, we'll use the EraserBrush module:
 canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-canvas.freeDrawingBrush.width = 5;
-canvas.freeDrawingBrush.color = "#000000";
 
-// Function to update brush properties
-const updateBrush = (color, width, opacity = 1) => {
+const updateBrush = (type) => {
     canvas.isDrawingMode = true;
-    canvas.freeDrawingBrush.color = color;
-    canvas.freeDrawingBrush.width = parseInt(width);
-    // For markers, we can simulate transparency
-    canvas.freeDrawingBrush.color = convertHexToRGBA(color, opacity);
+    const color = colorPicker.value;
+    const size = parseInt(sizeInput.value);
+
+    if (type === 'pen') {
+        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+        canvas.freeDrawingBrush.color = color;
+        canvas.freeDrawingBrush.shadow = null;
+    } 
+    else if (type === 'pencil') {
+        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+        canvas.freeDrawingBrush.color = convertHexToRGBA(color, 0.6); // Grainy look
+        // Adding a tiny blur to simulate graphite
+        canvas.freeDrawingBrush.shadow = new fabric.Shadow({
+            blur: 2,
+            offsetX: 0,
+            offsetY: 0,
+            color: color
+        });
+    } 
+    else if (type === 'marker') {
+        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+        canvas.freeDrawingBrush.color = convertHexToRGBA(color, 0.4);
+        canvas.freeDrawingBrush.shadow = null;
+    } 
+    else if (type === 'eraser') {
+        // ACTUAL ERASER: This removes pixels instead of painting white
+        canvas.freeDrawingBrush = new fabric.EraserBrush(canvas);
+    }
+    
+    canvas.freeDrawingBrush.width = size;
 };
 
-// Tool Selection Logic
-document.getElementById('pen-tool').onclick = () => updateBrush(colorPicker.value, sizeSlider.value, 1);
-document.getElementById('pencil-tool').onclick = () => updateBrush(colorPicker.value, 2, 0.6);
-document.getElementById('marker-tool').onclick = () => updateBrush(colorPicker.value, 20, 0.4);
-
-// Eraser Logic
-document.getElementById('eraser-tool').onclick = () => {
-    // In Fabric.js, erasing is often handled by drawing with the background color
-    updateBrush('#f8f8f8', sizeSlider.value, 1); 
+// Size controls
+document.getElementById('increase-size').onclick = () => {
+    sizeInput.value = parseInt(sizeInput.value) + 2;
+    canvas.freeDrawingBrush.width = parseInt(sizeInput.value);
 };
 
-// Listeners for Color and Size
-colorPicker.oninput = () => canvas.freeDrawingBrush.color = colorPicker.value;
-sizeSlider.oninput = () => canvas.freeDrawingBrush.width = parseInt(sizeSlider.value);
+document.getElementById('decrease-size').onclick = () => {
+    if(sizeInput.value > 1) {
+        sizeInput.value = parseInt(sizeInput.value) - 2;
+        canvas.freeDrawingBrush.width = parseInt(sizeInput.value);
+    }
+};
 
-// Helper for Marker transparency
+sizeInput.onchange = () => {
+    canvas.freeDrawingBrush.width = parseInt(sizeInput.value);
+};
+
+// Event Listeners
+document.getElementById('pen-tool').onclick = () => updateBrush('pen');
+document.getElementById('pencil-tool').onclick = () => updateBrush('pencil');
+document.getElementById('marker-tool').onclick = () => updateBrush('marker');
+document.getElementById('eraser-tool').onclick = () => updateBrush('eraser');
+
 function convertHexToRGBA(hex, opacity) {
     const r = parseInt(hex.slice(1, 3), 16);
     const g = parseInt(hex.slice(3, 5), 16);
