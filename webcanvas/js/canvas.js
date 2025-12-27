@@ -1,21 +1,25 @@
 const container = document.getElementById('canvas-container');
 
-// Initialize the Fabric Canvas
 const canvas = new fabric.Canvas('teachingCanvas', {
     width: window.innerWidth,
     height: 3000, 
     isDrawingMode: true,
-    backgroundColor: '#f8f8f8' // Solid background for white eraser to work
+    backgroundColor: 'transparent' // Allows the CSS background to show
 });
 
-// Infinite Scroll Logic
+// Improved Infinite Scroll detection
 container.addEventListener('scroll', () => {
-    if (container.scrollTop + container.clientHeight >= container.scrollHeight - 600) {
+    const scrollPos = container.scrollTop + container.clientHeight;
+    const threshold = canvas.getHeight() - 800;
+
+    if (scrollPos > threshold) {
+        // Add 1500px more height
         canvas.setHeight(canvas.getHeight() + 1500);
+        canvas.renderAll();
     }
 });
 
-// Handle Window Resize
 window.addEventListener('resize', () => {
     canvas.setWidth(window.innerWidth);
+    canvas.renderAll();
 });
