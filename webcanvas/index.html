@@ -3,19 +3,19 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Teaching Canvas</title>
+    <title>Infinite Teaching Canvas</title>
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="css/panel.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
 </head>
-<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
-<link rel="stylesheet" href="css/panel.css">
-
 <body>
+
     <div id="tool-panel">
-        <div class="tool" id="pen-tool"><i class="fas fa-pen"></i></div>
-        <div class="tool" id="pencil-tool"><i class="fas fa-pencil-alt"></i></div>
-        <div class="tool" id="marker-tool"><i class="fas fa-highlighter"></i></div>
-        <div class="tool" id="eraser-tool"><i class="fas fa-eraser"></i></div>
+        <div class="tool active" id="pen-tool" title="Pen"><i class="fas fa-pen"></i></div>
+        <div class="tool" id="pencil-tool" title="Pencil"><i class="fas fa-pencil-alt"></i></div>
+        <div class="tool" id="marker-tool" title="Marker"><i class="fas fa-highlighter"></i></div>
+        <div class="tool" id="eraser-tool" title="Eraser"><i class="fas fa-eraser"></i></div>
         
         <hr class="panel-divider">
 
@@ -23,14 +23,14 @@
             <input type="color" id="color-picker" value="#000000">
         </div>
         <div class="control-item size-control">
-            <div class="size-btn" id="increase-size"><i class="fas fa-plus"></i></div>
             <input type="number" id="size-input" value="5" min="1" max="100">
-            <div class="size-btn" id="decrease-size"><i class="fas fa-minus"></i></div>
         </div>
     </div>
 
-    <canvas id="teachingCanvas"></canvas>
-    
+    <div id="canvas-container">
+        <canvas id="teachingCanvas"></canvas>
+    </div>
+
     <script src="js/canvas.js"></script>
     <script src="js/tools.js"></script>
 </body>
