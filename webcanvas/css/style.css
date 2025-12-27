@@ -1,21 +1,15 @@
-body, html {
-    margin: 0;
-    padding: 0;
-    background-color: #f0f0f0;
-}
-
 #canvas-container {
     width: 100vw;
     height: 100vh;
-    overflow-y: auto; /* Enable vertical scroll */
-    overflow-x: hidden;
+    overflow-y: auto;
+    /* This grid is strictly background and cannot be touched by the canvas */
     background-color: #f8f8f8;
     background-image: 
-        linear-gradient(rgba(200, 200, 200, 0.3) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(200, 200, 200, 0.3) 1px, transparent 1px);
+        linear-gradient(rgba(200, 200, 200, 0.4) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(200, 200, 200, 0.4) 1px, transparent 1px);
     background-size: 40px 40px;
 }
 
 canvas {
-    display: block;
+    background-color: transparent !important; /* Critical for eraser to show grid */
 }
