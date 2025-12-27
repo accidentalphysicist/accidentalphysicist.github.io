@@ -1,67 +1,57 @@
 const sizeInput = document.getElementById('size-input');
 const colorPicker = document.getElementById('color-picker');
-<script src="https://unpkg.com/fabric-eraser-brush"></script>
-// 1. Fix: Eraser that doesn't hide the grid
-// We use Fabric's built-in EraserBrush (if available) or a "destination-out" mode
-// For standard Fabric 5.x, we'll use the EraserBrush module:
-canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+const tools = document.querySelectorAll('.tool');
 
-const updateBrush = (type) => {
-    canvas.isDrawingMode = true;
+function setActiveTool(element) {
+    tools.forEach(t => t.classList.remove('active'));
+    element.classList.add('active');
+}
+
+const updateBrush = (type, clickedElement) => {
+    setActiveTool(clickedElement);
+    
     const color = colorPicker.value;
     const size = parseInt(sizeInput.value);
+    
+    // Reset to default pencil brush for all writing tools
+    canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+    canvas.freeDrawingBrush.width = size;
 
     if (type === 'pen') {
-        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
         canvas.freeDrawingBrush.color = color;
-        canvas.freeDrawingBrush.shadow = null;
+        canvas.contextTop.globalCompositeOperation = 'source-over';
     } 
     else if (type === 'pencil') {
-        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-        canvas.freeDrawingBrush.color = convertHexToRGBA(color, 0.6); // Grainy look
-        // Adding a tiny blur to simulate graphite
-        canvas.freeDrawingBrush.shadow = new fabric.Shadow({
-            blur: 2,
-            offsetX: 0,
-            offsetY: 0,
-            color: color
-        });
+        canvas.freeDrawingBrush.color = convertHexToRGBA(color, 0.5);
+        canvas.contextTop.globalCompositeOperation = 'source-over';
     } 
     else if (type === 'marker') {
-        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-        canvas.freeDrawingBrush.color = convertHexToRGBA(color, 0.4);
-        canvas.freeDrawingBrush.shadow = null;
+        canvas.freeDrawingBrush.color = convertHexToRGBA(color, 0.3);
+        canvas.contextTop.globalCompositeOperation = 'source-over';
     } 
     else if (type === 'eraser') {
-        // ACTUAL ERASER: This removes pixels instead of painting white
-        canvas.freeDrawingBrush = new fabric.EraserBrush(canvas);
+        // This is the fix: It tells the canvas to "cut out" pixels instead of painting
+        canvas.freeDrawingBrush.color = '#000000'; // Color doesn't matter in this mode
+        canvas.contextTop.globalCompositeOperation = 'destination-out';
     }
-    
-    canvas.freeDrawingBrush.width = size;
-};
-
-// Size controls
-document.getElementById('increase-size').onclick = () => {
-    sizeInput.value = parseInt(sizeInput.value) + 2;
-    canvas.freeDrawingBrush.width = parseInt(sizeInput.value);
-};
-
-document.getElementById('decrease-size').onclick = () => {
-    if(sizeInput.value > 1) {
-        sizeInput.value = parseInt(sizeInput.value) - 2;
-        canvas.freeDrawingBrush.width = parseInt(sizeInput.value);
-    }
-};
-
-sizeInput.onchange = () => {
-    canvas.freeDrawingBrush.width = parseInt(sizeInput.value);
 };
 
 // Event Listeners
-document.getElementById('pen-tool').onclick = () => updateBrush('pen');
-document.getElementById('pencil-tool').onclick = () => updateBrush('pencil');
-document.getElementById('marker-tool').onclick = () => updateBrush('marker');
-document.getElementById('eraser-tool').onclick = () => updateBrush('eraser');
+document.getElementById('pen-tool').onclick = (e) => updateBrush('pen', e.currentTarget);
+document.getElementById('pencil-tool').onclick = (e) => updateBrush('pencil', e.currentTarget);
+document.getElementById('marker-tool').onclick = (e) => updateBrush('marker', e.currentTarget);
+document.getElementById('eraser-tool').onclick = (e) => updateBrush('eraser', e.currentTarget);
+
+sizeInput.oninput = () => {
+    canvas.freeDrawingBrush.width = parseInt(sizeInput.value) || 1;
+};
+
+colorPicker.oninput = () => {
+    // Only update color if not in eraser mode
+    if (canvas.contextTop.globalCompositeOperation !== 'destination-out') {
+        canvas.freeDrawingBrush.color = colorPicker.value;
+    }
+};
 
 function convertHexToRGBA(hex, opacity) {
     const r = parseInt(hex.slice(1, 3), 16);
@@ -69,3 +59,6 @@ function convertHexToRGBA(hex, opacity) {
     const b = parseInt(hex.slice(5, 7), 16);
     return `rgba(${r},${g},${b},${opacity})`;
 }
+
+// Set initial state
+updateBrush('pen', document.getElementById('pen-tool'));
