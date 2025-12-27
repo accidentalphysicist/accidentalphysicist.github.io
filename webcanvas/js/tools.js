@@ -10,14 +10,15 @@ const updateBrush = (type) => {
 
     canvas.isDrawingMode = true;
     
+    // Crucial: Clear the brush before creating a new one
+    canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
+
     if (type === 'eraser') {
-        // Use the built-in PencilBrush but set it to "erase" mode
-        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-        canvas.freeDrawingBrush.width = size;
-        canvas.freeDrawingBrush.color = 'rgba(0,0,0,1)';
+        // Fix: Use 'destination-out' to make pixels transparent
+        canvas.freeDrawingBrush.color = 'rgba(0,0,0,1)'; 
+        canvas.freeDrawingBrush.width = size * 2;
         canvas.freeDrawingBrush.globalCompositeOperation = 'destination-out';
     } else {
-        canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
         canvas.freeDrawingBrush.globalCompositeOperation = 'source-over';
         
         if (type === 'pen') {
@@ -25,13 +26,22 @@ const updateBrush = (type) => {
             canvas.freeDrawingBrush.color = color;
             canvas.freeDrawingBrush.strokeLineCap = 'round';
         } else if (type === 'pencil') {
-            canvas.freeDrawingBrush.width = size * 0.5; // Thinner for pencil
-            canvas.freeDrawingBrush.color = convertHexToRGBA(color, 0.5);
+            canvas.freeDrawingBrush.width = size * 0.5;
+            canvas.freeDrawingBrush.color = convertHexToRGBA(color, 0.4);
             canvas.freeDrawingBrush.strokeLineCap = 'round';
         } else if (type === 'marker') {
-            canvas.freeDrawingBrush.width = size * 3; // Significantly wider
+            // Marker Improvement: Larger size and slight transparency
+            canvas.freeDrawingBrush.width = size * 4; 
             canvas.freeDrawingBrush.color = convertHexToRGBA(color, 0.3);
-            canvas.freeDrawingBrush.strokeLineCap = 'square'; // Marker feel
+            canvas.freeDrawingBrush.strokeLineCap = 'square';
+            
+            // Simulating a "longer" marker tip with a slight shadow offset
+            canvas.freeDrawingBrush.shadow = new fabric.Shadow({
+                blur: 2,
+                offsetX: 0,
+                offsetY: 4, // Elongates the stroke vertically
+                color: convertHexToRGBA(color, 0.2)
+            });
         }
     }
 };
@@ -43,11 +53,6 @@ function convertHexToRGBA(hex, opacity) {
     return `rgba(${r},${g},${b},${opacity})`;
 }
 
-// Re-initialize listeners on boot
 window.addEventListener('DOMContentLoaded', () => {
-    const ids = ['pen-tool', 'pencil-tool', 'marker-tool', 'eraser-tool'];
-    ids.forEach(id => {
-        document.getElementById(id).addEventListener('click', () => updateBrush(id.split('-')[0]));
-    });
     updateBrush('pen');
 });
