@@ -1,0 +1,15 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    overflow: hidden; /* Prevent scrolling */
+    height: 100%;
+}
+
+/* The grid pattern background */
+.canvas-container {
+    background-color: #f8f8f8;
+    background-image: 
+        linear-gradient(rgba(200, 200, 200, 0.3) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(200, 200, 200, 0.3) 1px, transparent 1px);
+    background-size: 40px 40px; /* Adjust size of grid squares */
+}
