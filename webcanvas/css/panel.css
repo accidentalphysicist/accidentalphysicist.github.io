@@ -1,48 +1,25 @@
-#tool-panel {
-    position: fixed;
-    left: 0;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 20px; /* Collapsed width */
-    height: auto;
-    background: white;
-    border: 1px solid #ddd;
-    border-radius: 0 10px 10px 0;
-    box-shadow: 2px 0 10px rgba(0,0,0,0.1);
-    transition: width 0.3s ease;
-    overflow: hidden;
-    z-index: 1000;
-    padding: 10px 5px;
+.size-control {
     display: flex;
     flex-direction: column;
     align-items: center;
+    gap: 5px;
 }
 
-#tool-panel:hover {
-    width: 60px; /* Expanded width */
-}
-
-.tool {
-    font-size: 20px;
-    margin: 15px 0;
+.size-btn {
     cursor: pointer;
+    font-size: 12px;
     color: #555;
-    transition: color 0.2s;
+    padding: 2px;
 }
 
-.tool:hover, .tool.active {
-    color: #4A90E2;
-}
-
-.panel-divider {
-    width: 80%;
-    border: 0;
-    border-top: 1px solid #eee;
-    margin: 10px 0;
-}
-
-.control-item input {
+#size-input {
     width: 35px;
-    margin: 10px 0;
-    cursor: pointer;
+    text-align: center;
+    border: 1px solid #ddd;
+    border-radius: 4px;
+    -moz-appearance: textfield; /* Hide arrows in Firefox */
+}
+
+#size-input::-webkit-inner-spin-button { 
+    -webkit-appearance: none; /* Hide arrows in Chrome */
 }
