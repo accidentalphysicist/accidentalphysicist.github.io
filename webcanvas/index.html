@@ -190,7 +190,7 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <title>Advanced Teaching Whiteboard</title>
+    <title>Advanced Vector Whiteboard</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
@@ -208,7 +208,7 @@
             transition: width 0.3s; z-index: 1000; padding: 10px 5px;
             display: flex; flex-direction: column; align-items: center;
         }
-        #tool-panel:hover { width: 100px; }
+        #tool-panel:hover { width: 105px; }
         .tool { font-size: 18px; margin: 4px 0; cursor: pointer; color: #666; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
         .tool.active { color: white; background: #4A90E2; }
         
@@ -220,10 +220,8 @@
         }
         #shape-tray.visible { left: 55px; }
         .shape-opt { font-size: 11px; padding: 5px; cursor: pointer; text-align: center; border: 1px solid #eee; background: #fafafa; }
-
         .text-styles { display: flex; flex-wrap: wrap; justify-content: center; gap: 2px; margin-top: 5px; }
         .style-btn { font-size: 12px; cursor: pointer; padding: 2px 5px; border: 1px solid #ddd; border-radius: 3px; background: #eee; }
-        
         input, select { width: 60px; margin: 4px 0; font-size: 11px; }
     </style>
 </head>
@@ -240,7 +238,6 @@
     <div class="text-styles">
         <div class="style-btn" onclick="formatText('bold')"><b>B</b></div>
         <div class="style-btn" onclick="formatText('italic')"><i>I</i></div>
-        <div class="style-btn" onclick="formatText('underline')"><u>U</u></div>
         <div class="style-btn" onclick="formatText('sup')">x²</div>
         <div class="style-btn" onclick="formatText('sub')">x₂</div>
     </div>
@@ -251,8 +248,6 @@
     <select id="fontPicker">
         <option value="Arial">Arial</option>
         <option value="Courier New">Mono</option>
-        <option value="Times New Roman">Serif</option>
-        <option value="Verdana">Verdana</option>
         <option value="Comic Sans MS">Comic</option>
     </select>
     
@@ -270,7 +265,6 @@
     <div class="shape-opt" onclick="addShape('line')">Line</div>
     <div class="shape-opt" onclick="addShape('arrow')">Arrow</div>
     <div class="shape-opt" onclick="addShape('axes')">Axes</div>
-    <div class="shape-opt" onclick="addShape('star')">Star</div>
 </div>
 
 <div id="canvas-container"><canvas id="c"></canvas></div>
@@ -284,12 +278,28 @@
     const colorInp = document.getElementById('colorPicker');
     const sizeInp = document.getElementById('sizePicker');
 
+    // --- ERASER LOGIC: ACTUAL REMOVAL ---
+    canvas.on('mouse:move', function(options) {
+        if (currentMode === 'eraser' && options.e.buttons === 1) {
+            const pointer = canvas.getPointer(options.e);
+            // Check for objects within a small radius of the cursor
+            const objects = canvas.getObjects();
+            objects.forEach(obj => {
+                if (obj.containsPoint(pointer)) {
+                    canvas.remove(obj);
+                    canvas.renderAll();
+                }
+            });
+        }
+    });
+
     function setMode(mode) {
         currentMode = mode;
         document.querySelectorAll('.tool').forEach(t => t.classList.remove('active'));
         if(document.getElementById(`${mode}-btn`)) document.getElementById(`${mode}-btn`).classList.add('active');
         
-        canvas.isDrawingMode = (['pen', 'pencil', 'marker', 'eraser'].includes(mode));
+        // Disable internal drawing mode for eraser so we can use our custom logic
+        canvas.isDrawingMode = (['pen', 'pencil', 'marker'].includes(mode));
         if (mode === 'text') addText();
         if (canvas.isDrawingMode) applyBrush();
     }
@@ -300,27 +310,20 @@
         if (currentMode === 'pen') { canvas.freeDrawingBrush.color = color; canvas.freeDrawingBrush.width = size; }
         else if (currentMode === 'pencil') { canvas.freeDrawingBrush.color = color + '80'; canvas.freeDrawingBrush.width = size * 0.7; }
         else if (currentMode === 'marker') { canvas.freeDrawingBrush.color = color + '4D'; canvas.freeDrawingBrush.width = size * 6; canvas.freeDrawingBrush.strokeLineCap = 'square'; }
-        else if (currentMode === 'eraser') { canvas.freeDrawingBrush.color = '#f8f8f8'; canvas.freeDrawingBrush.width = size * 10; }
     }
 
-    // ADVANCED TEXT FORMATTING
     function formatText(style) {
         const obj = canvas.getActiveObject();
         if (!obj || obj.type !== 'textbox') return;
-        
         if (style === 'bold') obj.set('fontWeight', obj.fontWeight === 'bold' ? 'normal' : 'bold');
         if (style === 'italic') obj.set('fontStyle', obj.fontStyle === 'italic' ? 'normal' : 'italic');
-        if (style === 'underline') obj.set('underline', !obj.underline);
-        
-        // Sub/Superscript logic using selection
         if (style === 'sup' || style === 'sub') {
-            const val = style === 'sup' ? 'superscript' : 'subscript';
             obj.setSelectionStyles({ fontSize: 15, deltaY: style === 'sup' ? -10 : 10 });
         }
         canvas.renderAll();
     }
 
-    // CLIPBOARD PASTE SUPPORT
+    // CLIPBOARD SUPPORT
     window.addEventListener('paste', function(e) {
         const items = e.clipboardData.items;
         for (let i = 0; i < items.length; i++) {
@@ -334,11 +337,6 @@
                     });
                 };
                 reader.readAsDataURL(blob);
-            } else if (items[i].type === 'text/plain') {
-                items[i].getAsString(function(text) {
-                    const txt = new fabric.Textbox(text, { left: 200, top: container.scrollTop + 100, fontSize: 20 });
-                    canvas.add(txt);
-                });
             }
         }
     });
