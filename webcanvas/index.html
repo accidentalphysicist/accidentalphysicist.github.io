@@ -1,4 +1,4 @@
-<!DOCTYPE html>
+<!-- <!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
@@ -260,52 +260,100 @@
     applyBrush();
 </script>
 </body>
-</html>
+</html> -->
 
-<!-- <!DOCTYPE html>
+<!DOCTYPE html>
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Adv Teaching Canvas</title>
+    <title>Professional Teaching Whiteboard & Grapher</title>
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css">
     <script src="https://cdnjs.cloudflare.com/ajax/libs/fabric.js/5.3.1/fabric.min.js"></script>
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
     <style>
         body, html { margin: 0; padding: 0; overflow: hidden; background: #f8f8f8; font-family: sans-serif; }
-        #canvas-container {
-            width: 100vw; height: 100vh; overflow-y: auto; overflow-x: hidden;
-            background-image: radial-gradient(#ccc 1px, transparent 1px);
-            background-size: 30px 30px; position: relative;
-        }
+        #canvas-container { width: 100vw; height: 100vh; overflow-y: auto; background-color: #f8f8f8; position: relative; }
+        .show-grid { background-image: radial-gradient(#ccc 1px, transparent 1px); background-size: 30px 30px; }
+        
+        /* TOOLBAR */
         #tool-panel {
             position: fixed; left: 0; top: 50%; transform: translateY(-50%);
-            width: 40px; background: white; border: 1px solid #ddd;
+            width: 45px; background: white; border: 1px solid #ddd;
             border-radius: 0 10px 10px 0; box-shadow: 2px 0 10px rgba(0,0,0,0.1);
             transition: width 0.3s; z-index: 1000; padding: 10px 5px;
             display: flex; flex-direction: column; align-items: center;
         }
-        #tool-panel:hover { width: 90px; }
-        .tool { font-size: 18px; margin: 5px 0; cursor: pointer; color: #666; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; transition: 0.2s; }
-        .tool.active { color: white; background: #4A90E2; }
+        #tool-panel:hover { width: 115px; }
+        .tool { font-size: 18px; margin: 4px 0; cursor: pointer; color: #666; width: 40px; height: 40px; display: flex; align-items: center; justify-content: center; border-radius: 8px; }
+        .tool.active, .style-btn.active { color: white; background: #4A90E2; }
         
-        #shape-tray {
-            position: fixed; left: -250px; top: 50%; transform: translateY(-50%);
-            width: 200px; background: white; border: 1px solid #ddd; border-radius: 10px;
-            padding: 10px; display: grid; grid-template-columns: repeat(3, 1fr); gap: 5px;
-            transition: left 0.3s; z-index: 999; box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+        /* GRAPH WIDGET */
+        #graph-launcher {
+            position: fixed; right: 20px; top: 20px; width: 50px; height: 50px;
+            background: white; border: 2px solid #4A90E2; border-radius: 50%;
+            display: flex; align-items: center; justify-content: center;
+            cursor: pointer; z-index: 2000; transition: transform 0.2s; color: #4A90E2;
         }
-        #shape-tray.visible { left: 50px; }
-        .shape-opt { font-size: 12px; padding: 8px; cursor: pointer; text-align: center; border-radius: 5px; border: 1px solid #eee; background: #fafafa; }
-        .shape-opt:hover { background: #f0f0f0; border-color: #4A90E2; }
+        #graph-launcher:hover { transform: scale(1.1); }
+        #graph-widget {
+            position: fixed; top: 7.5%; left: 7.5%; width: 85%; height: 85%;
+            background: white; border-radius: 12px; box-shadow: 0 10px 40px rgba(0,0,0,0.3);
+            z-index: 3000; display: none; flex-direction: column; border: 1px solid #ccc;
+        }
+        #graph-header { background: #4A90E2; color: white; padding: 10px 20px; display: flex; justify-content: space-between; align-items: center; border-radius: 12px 12px 0 0; }
+        #graph-body { display: flex; flex: 1; overflow: hidden; }
+        #graph-sidebar { width: 280px; border-right: 1px solid #ddd; padding: 15px; overflow-y: auto; font-size: 13px; }
+        #chart-area { flex: 1; padding: 20px; display: flex; flex-direction: column; }
+        
+        /* TABLE OF VALUES */
+        #val-table-container { height: 150px; overflow-y: auto; border: 1px solid #eee; margin-top: 10px; font-size: 11px; }
+        table { width: 100%; border-collapse: collapse; }
+        th, td { border: 1px solid #eee; padding: 4px; text-align: center; }
 
-        input, select { width: 50px; margin: 4px 0; font-size: 10px; }
-        .fill-label { font-size: 10px; color: #666; margin-top: 5px; }
+        .style-btn { font-size: 11px; cursor: pointer; padding: 3px 6px; border: 1px solid #ddd; border-radius: 3px; background: #eee; }
+        input, select { width: 90%; margin: 5px 0; font-size: 12px; }
+        .btn-row { display: flex; gap: 5px; }
+        button { cursor: pointer; padding: 5px; border-radius: 4px; border: 1px solid #ccc; background: #fdfdfd; font-size: 12px; }
     </style>
 </head>
 <body>
 
+<div id="graph-launcher" onclick="toggleGraphWidget()"><i class="fas fa-chart-area fa-lg"></i></div>
+
+<div id="graph-widget">
+    <div id="graph-header">
+        <strong>Graphing Tool</strong>
+        <div class="btn-row">
+            <button onclick="copyGraph()">Copy to Canvas</button>
+            <button onclick="toggleGraphWidget()" style="color:red">Close</button>
+        </div>
+    </div>
+    <div id="graph-body">
+        <div id="graph-sidebar">
+            <label>Function f(x):</label>
+            <input type="text" id="funcInput" placeholder="e.g. sin(x) * 2">
+            <div class="btn-row">
+                <button onclick="plotFunction()" style="background:#4A90E2; color:white; flex:1">Plot</button>
+                <button onclick="clearGraphs()">Clear</button>
+            </div>
+            <hr>
+            <label>X Range:</label>
+            <div class="btn-row">
+                <input type="number" id="xMin" value="-10"> <input type="number" id="xMax" value="10">
+            </div>
+            <label><input type="checkbox" id="shadeArea"> Shade Area (AUC)</label>
+            <hr>
+            <strong>Table of Values</strong>
+            <div id="val-table-container"><table id="valTable"><thead><tr><th>x</th><th>f(x)</th></tr></thead><tbody></tbody></table></div>
+        </div>
+        <div id="chart-area"><canvas id="graphCanvas"></canvas></div>
+    </div>
+</div>
+
 <div id="tool-panel">
+    <div class="tool" id="select-btn" onclick="setMode('select')"><i class="fas fa-mouse-pointer"></i></div>
     <div class="tool active" id="pen-btn" onclick="setMode('pen')"><i class="fas fa-pen"></i></div>
     <div class="tool" id="pencil-btn" onclick="setMode('pencil')"><i class="fas fa-pencil-alt"></i></div>
     <div class="tool" id="marker-btn" onclick="setMode('marker')"><i class="fas fa-highlighter"></i></div>
@@ -314,139 +362,105 @@
     <hr style="width:80%">
     <input type="color" id="colorPicker" value="#000000">
     <input type="number" id="sizePicker" value="5" min="1">
-    <select id="fontPicker"><option value="Arial">Arial</option><option value="Courier">Mono</option></select>
-    <hr style="width:80%">
-    <div class="tool" id="shapes-toggle" onclick="toggleTray()" style="color:#8e44ad"><i class="fas fa-shapes"></i></div>
-    <div class="fill-label"><input type="checkbox" id="fillShapes"> Fill</div>
+    <select id="fontPicker"><option value="Arial">Arial</option><option value="Courier New">Mono</option></select>
     <hr style="width:80%">
     <div class="tool" id="pdf-btn" onclick="exportPDF()" style="color:#27ae60"><i class="fas fa-file-pdf"></i></div>
     <div class="tool" id="clear-btn" onclick="clearBoard()" style="color:#e74c3c"><i class="fas fa-trash-alt"></i></div>
 </div>
 
-<div id="shape-tray">
-    <div class="shape-opt" onclick="addShape('rect')">Rect</div>
-    <div class="shape-opt" onclick="addShape('circle')">Circle</div>
-    <div class="shape-opt" onclick="addShape('square')">Square</div>
-    <div class="shape-opt" onclick="addShape('line')">Line</div>
-    <div class="shape-opt" onclick="addShape('arrow')">Arrow</div>
-    <div class="shape-opt" onclick="addShape('axes')">Axes</div>
-    <div class="shape-opt" onclick="addShape('star')">Star</div>
-    <div class="shape-opt" onclick="addShape('semi')">Semi</div>
-    <div class="shape-opt" onclick="addShape('arc')">Arc</div>
-</div>
-
-<div id="canvas-container"><canvas id="c"></canvas></div>
+<div id="canvas-container" class="show-grid"><canvas id="c"></canvas></div>
 
 <script>
+    // --- MAIN CANVAS LOGIC ---
     const { jsPDF } = window.jspdf;
     const container = document.getElementById('canvas-container');
-    const canvas = new fabric.Canvas('c', { 
-        width: window.innerWidth, 
-        height: 4000, 
-        isDrawingMode: true, 
-        backgroundColor: null 
-    });
+    const canvas = new fabric.Canvas('c', { width: window.innerWidth, height: 4000, isDrawingMode: true, backgroundColor: null });
 
-    let currentMode = 'pen';
-    const colorInp = document.getElementById('colorPicker');
-    const sizeInp = document.getElementById('sizePicker');
-    const fillInp = document.getElementById('fillShapes');
-
-    // Utility for colors
-    function hexToRgba(hex, opacity) {
-        const r = parseInt(hex.slice(1, 3), 16), g = parseInt(hex.slice(3, 5), 16), b = parseInt(hex.slice(5, 7), 16);
-        return `rgba(${r},${g},${b},${opacity})`;
-    }
-
-    // 1. TOOL SWITCHING LOGIC
     function setMode(mode) {
-        currentMode = mode;
         document.querySelectorAll('.tool').forEach(t => t.classList.remove('active'));
-        document.getElementById(`${mode}-btn`).classList.add('active');
-        
-        if (mode === 'text') {
-            canvas.isDrawingMode = false;
-            addText();
-        } else {
-            canvas.isDrawingMode = true;
-            applyBrush();
-        }
+        if(document.getElementById(`${mode}-btn`)) document.getElementById(`${mode}-btn`).classList.add('active');
+        canvas.isDrawingMode = (['pen', 'pencil', 'marker', 'eraser'].includes(mode));
+        if (mode === 'text') addText();
+        if (canvas.isDrawingMode) applyBrush(mode);
     }
 
-    function applyBrush() {
-        if (!canvas.isDrawingMode) return;
+    function applyBrush(mode) {
         canvas.freeDrawingBrush = new fabric.PencilBrush(canvas);
-        const color = colorInp.value, size = parseInt(sizeInp.value);
-
-        if (currentMode === 'pen') { canvas.freeDrawingBrush.color = color; canvas.freeDrawingBrush.width = size; }
-        else if (currentMode === 'pencil') { canvas.freeDrawingBrush.color = hexToRgba(color, 0.4); canvas.freeDrawingBrush.width = size * 0.7; }
-        else if (currentMode === 'marker') { canvas.freeDrawingBrush.color = hexToRgba(color, 0.3); canvas.freeDrawingBrush.width = size * 5; canvas.freeDrawingBrush.strokeLineCap = 'square'; }
-        else if (currentMode === 'eraser') { canvas.freeDrawingBrush.color = '#f8f8f8'; canvas.freeDrawingBrush.width = size * 10; }
-    }
-
-    // 2. SHAPE LOGIC
-    function toggleTray() { document.getElementById('shape-tray').classList.toggle('visible'); }
-
-    function addShape(type) {
-        canvas.isDrawingMode = false;
-        const color = colorInp.value;
-        const fill = fillInp.checked ? hexToRgba(color, 0.3) : 'transparent';
-        const common = { left: 200, top: container.scrollTop + 200, fill: fill, stroke: color, strokeWidth: 2 };
-        
-        let obj;
-        if (type === 'rect') obj = new fabric.Rect({...common, width: 150, height: 80});
-        else if (type === 'circle') obj = new fabric.Circle({...common, radius: 50});
-        else if (type === 'square') obj = new fabric.Rect({...common, width: 100, height: 100});
-        else if (type === 'line') obj = new fabric.Line([50, 50, 200, 50], {stroke: color, strokeWidth: 2, left: 200, top: container.scrollTop + 200});
-        else if (type === 'arrow') {
-            obj = new fabric.Path('M 0 0 L 100 0 M 100 0 L 85 -8 M 100 0 L 85 8', {...common, fill: 'transparent'});
-        }
-        else if (type === 'axes') {
-            // Axes with arrows
-            obj = new fabric.Path('M 0 100 L 0 0 M 0 0 L -5 10 M 0 0 L 5 10 M 0 100 L 100 100 M 100 100 L 90 95 M 100 100 L 90 105', {...common, fill: 'transparent'});
-        }
-        else if (type === 'star') {
-            obj = new fabric.Path('M 50 0 L 61 35 L 98 35 L 68 57 L 79 91 L 50 70 L 21 91 L 32 57 L 2 35 L 39 35 Z', common);
-        }
-        else if (type === 'semi') {
-            obj = new fabric.Path('M 100 100 A 50 50 0 0 0 0 100 Z', common);
-        }
-        else if (type === 'arc') {
-            obj = new fabric.Path('M 100 100 A 50 50 0 0 0 0 100', {...common, fill: 'transparent'});
-        }
-
-        canvas.add(obj);
-        canvas.setActiveObject(obj);
-        document.getElementById('shape-tray').classList.remove('visible');
+        const color = document.getElementById('colorPicker').value;
+        const size = parseInt(document.getElementById('sizePicker').value);
+        if (mode === 'pen') { canvas.freeDrawingBrush.color = color; canvas.freeDrawingBrush.width = size; }
+        else if (mode === 'eraser') { canvas.freeDrawingBrush.color = '#f8f8f8'; canvas.freeDrawingBrush.width = size * 10; }
+        else { canvas.freeDrawingBrush.color = color + '80'; canvas.freeDrawingBrush.width = size; }
     }
 
     function addText() {
-        const text = new fabric.Textbox('Edit', { left: 200, top: container.scrollTop + 200, fill: colorInp.value, fontSize: 30, fontFamily: document.getElementById('fontPicker').value });
-        canvas.add(text);
-        canvas.setActiveObject(text);
+        const t = new fabric.Textbox('Text', { left: 100, top: container.scrollTop + 100, fontSize: 30 });
+        canvas.add(t); canvas.setActiveObject(t);
     }
 
-    // 3. EXPORT & SYSTEM
-    function exportPDF() {
-        canvas.setBackgroundColor('#f8f8f8', () => {
-            const dataURL = canvas.toDataURL({ format: 'png', quality: 1 });
-            const pdf = new jsPDF('p', 'px', [canvas.width, canvas.height]);
-            pdf.addImage(dataURL, 'PNG', 0, 0, canvas.width, canvas.height);
-            pdf.save("whiteboard-export.pdf");
-            canvas.setBackgroundColor(null, canvas.renderAll.bind(canvas));
+    // --- GRAPH WIDGET LOGIC ---
+    let chart;
+    const graphColors = ['#4A90E2', '#e74c3c', '#27ae60'];
+
+    function toggleGraphWidget() {
+        const widget = document.getElementById('graph-widget');
+        const isHidden = widget.style.display === 'none' || widget.style.display === '';
+        widget.style.display = isHidden ? 'flex' : 'none';
+        if (isHidden && !chart) initChart();
+    }
+
+    function initChart() {
+        const ctx = document.getElementById('graphCanvas').getContext('2d');
+        chart = new Chart(ctx, {
+            type: 'line',
+            data: { datasets: [] },
+            options: {
+                responsive: true, maintainAspectRatio: false,
+                scales: { x: { type: 'linear', position: 'bottom' }, y: { type: 'linear' } }
+            }
         });
     }
 
-    function clearBoard() { if(confirm("Clear board?")) canvas.clear(); applyBrush(); }
+    function plotFunction() {
+        const exp = document.getElementById('funcInput').value;
+        const xMin = parseFloat(document.getElementById('xMin').value);
+        const xMax = parseFloat(document.getElementById('xMax').value);
+        const shade = document.getElementById('shadeArea').checked;
+        const data = [], tableBody = document.querySelector('#valTable tbody');
+        tableBody.innerHTML = '';
 
-    // Listeners
-    colorInp.oninput = applyBrush;
-    sizeInp.oninput = applyBrush;
+        for (let x = xMin; x <= xMax; x += 0.5) {
+            try {
+                const y = math.evaluate(exp, { x: x });
+                data.push({ x: x, y: y });
+                if (data.length < 50) tableBody.innerHTML += `<tr><td>${x}</td><td>${y.toFixed(2)}</td></tr>`;
+            } catch (e) {}
+        }
+
+        chart.data.datasets.push({
+            label: exp, data: data, borderColor: graphColors[chart.data.datasets.length % 3],
+            fill: shade, backgroundColor: 'rgba(74, 144, 226, 0.2)', tension: 0.3, pointRadius: 0
+        });
+        chart.update();
+    }
+
+    function copyGraph() {
+        // Capture chart as image and add to Fabric canvas
+        const dataURL = chart.toBase64Image();
+        fabric.Image.fromURL(dataURL, function(img) {
+            img.scale(0.6).set({ left: 150, top: container.scrollTop + 100 });
+            canvas.add(img);
+            toggleGraphWidget();
+        });
+    }
+
+    function clearGraphs() { chart.data.datasets = []; chart.update(); document.querySelector('#valTable tbody').innerHTML = ''; }
+    
+    // Global Listeners
     container.onscroll = () => { if(container.scrollTop + container.clientHeight > canvas.getHeight() - 800) canvas.setHeight(canvas.getHeight() + 2000); };
     window.onkeydown = (e) => { if((e.key === "Delete" || e.key === "Backspace") && canvas.getActiveObject() && !canvas.getActiveObject().isEditing) canvas.remove(...canvas.getActiveObjects()); };
     
-    applyBrush();
+    setMode('pen');
 </script>
 </body>
-</html> -->
-
+</html>
