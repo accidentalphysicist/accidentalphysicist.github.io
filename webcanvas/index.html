@@ -126,27 +126,23 @@
     <div id="graph-body">
         <div id="graph-sidebar">
             <input type="text" id="graphTitle" placeholder="Graph Title">
-            <input type="text" id="xLabel" placeholder="X-Axis Label">
-            <input type="text" id="yLabel" placeholder="Y-Axis Label">
+            <input type="text" id="xLabel" placeholder="X-Axis Label (Latex ok)">
+            <input type="text" id="yLabel" placeholder="Y-Axis Label (Latex ok)">
             <hr>
-            <input type="text" id="funcInput" placeholder="Enter function (e.g., sin(x))">
-            <button class="graph-btn" style="background:#4A90E2; color:white" onclick="addFunction()">Plot Function</button>
+            <div id="function-list"></div>
+            <button class="graph-btn" onclick="addFunctionRow()" style="background:#27ae60; color:white">+ Add Function</button>
             <hr>
-            <div class="toggle-label">X-Range: <br> 
-                <input type="number" id="xMin" value="-10" style="width:60px"> to 
-                <input type="number" id="xMax" value="10" style="width:60px">
+            <div class="toggle-label">X-Range: <br>
+                <input type="number" id="xMin" value="-10" oninput="syncGraph()" style="width:60px"> to 
+                <input type="number" id="xMax" value="10" oninput="syncGraph()" style="width:60px">
             </div>
-            <div class="toggle-label">Δx (Step): <input type="number" id="deltaX" value="0.1" step="0.1" style="width:60px"></div>
-            <hr>
-            <div id="val-table-container">
-                <table id="valTable">
-                    <thead><tr><th>x</th><th>f(x)</th></tr></thead>
-                    <tbody></tbody>
-                </table>
+            <div class="toggle-label">Y-Range (Optional): <br>
+                <input type="number" id="yMin" placeholder="Min" oninput="syncGraph()" style="width:60px"> to 
+                <input type="number" id="yMax" placeholder="Max" oninput="syncGraph()" style="width:60px">
             </div>
-            <button class="graph-btn" onclick="exportTableToCanvas()">Paste Table to Canvas</button>
-            <button class="graph-btn" onclick="exportCSV()">Download CSV</button>
-            <button class="graph-btn" onclick="clearGraphs()" style="background:#f0f0f0;">Clear All</button>
+            <div class="toggle-label">Δx: <input type="number" id="deltaX" value="0.5" step="0.1" oninput="syncGraph()" style="width:60px"></div>
+            <hr>
+            <div id="val-table-container"><table id="valTable"><thead><tr><th>x</th></tr></thead><tbody></tbody></table></div>
         </div>
         <div id="chart-container">
             <canvas id="graphCanvas"></canvas>
