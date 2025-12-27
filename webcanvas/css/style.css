@@ -3,8 +3,7 @@
     height: 100vh;
     overflow-y: auto;
     background-color: #f8f8f8;
-    background-image: 
-        linear-gradient(rgba(200, 200, 200, 0.3) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(200, 200, 200, 0.3) 1px, transparent 1px);
-    background-size: 40px 40px;
+    /* Dotted grid pattern */
+    background-image: radial-gradient(#ccc 1px, transparent 1px);
+    background-size: 30px 30px;
 }
