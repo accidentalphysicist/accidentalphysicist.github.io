@@ -125,14 +125,28 @@
     
     <div id="graph-body">
         <div id="graph-sidebar">
-            <input type="text" id="funcInput" placeholder="Enter function (e.g., x^2)">
-            <button onclick="addFunction()">Plot Function</button>
-            <div id="function-list"></div>
-            
+            <input type="text" id="graphTitle" placeholder="Graph Title">
+            <input type="text" id="xLabel" placeholder="X-Axis Label">
+            <input type="text" id="yLabel" placeholder="Y-Axis Label">
             <hr>
-            <div class="toggle-label">X-Range: <input type="number" id="xMin" value="-10"> to <input type="number" id="xMax" value="10"></div>
-            <div class="toggle-label"><input type="checkbox" id="shadeArea"> Shade Area (AUC)</div>
-            <button onclick="clearGraphs()" style="margin-top:10px">Clear All</button>
+            <input type="text" id="funcInput" placeholder="Enter function (e.g., sin(x))">
+            <button class="graph-btn" style="background:#4A90E2; color:white" onclick="addFunction()">Plot Function</button>
+            <hr>
+            <div class="toggle-label">X-Range: <br> 
+                <input type="number" id="xMin" value="-10" style="width:60px"> to 
+                <input type="number" id="xMax" value="10" style="width:60px">
+            </div>
+            <div class="toggle-label">Δx (Step): <input type="number" id="deltaX" value="0.1" step="0.1" style="width:60px"></div>
+            <hr>
+            <div id="val-table-container">
+                <table id="valTable">
+                    <thead><tr><th>x</th><th>f(x)</th></tr></thead>
+                    <tbody></tbody>
+                </table>
+            </div>
+            <button class="graph-btn" onclick="exportTableToCanvas()">Paste Table to Canvas</button>
+            <button class="graph-btn" onclick="exportCSV()">Download CSV</button>
+            <button class="graph-btn" onclick="clearGraphs()" style="background:#f0f0f0;">Clear All</button>
         </div>
         <div id="chart-container">
             <canvas id="graphCanvas"></canvas>
