@@ -2,14 +2,16 @@
     width: 100vw;
     height: 100vh;
     overflow-y: auto;
-    /* This grid is strictly background and cannot be touched by the canvas */
-    background-color: #f8f8f8;
+    position: relative;
+    /* Grid is applied here */
+    background-color: #fdfdfd; 
     background-image: 
-        linear-gradient(rgba(200, 200, 200, 0.4) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(200, 200, 200, 0.4) 1px, transparent 1px);
-    background-size: 40px 40px;
+        linear-gradient(rgba(220, 220, 220, 0.5) 1px, transparent 1px),
+        linear-gradient(90deg, rgba(220, 220, 220, 0.5) 1px, transparent 1px);
+    background-size: 50px 50px;
 }
 
-canvas {
-    background-color: transparent !important; /* Critical for eraser to show grid */
+/* Force the canvas to be see-through */
+.canvas-container, #teachingCanvas {
+    background-color: transparent !important;
 }
