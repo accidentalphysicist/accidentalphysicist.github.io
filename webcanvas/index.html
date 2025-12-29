@@ -257,16 +257,91 @@
         });
     }
 
+    // --- UNDO / REDO / DELETE / SHORTCUTS ---
     let history = [], redoStack = [], isResetting = false;
-    function saveState() { if (!isResetting) { history.push(JSON.stringify(canvas)); redoStack = []; } }
-    canvas.on('object:added', saveState); canvas.on('object:modified', saveState); canvas.on('path:created', saveState);
-    function undo() { if (history.length <= 1) return; isResetting = true; redoStack.push(history.pop()); canvas.loadFromJSON(history[history.length - 1], () => { canvas.renderAll(); isResetting = false; }); }
-    function redo() { if (!redoStack.length) return; isResetting = true; const state = redoStack.pop(); history.push(state); canvas.loadFromJSON(state, () => { canvas.renderAll(); isResetting = false; }); }
+
+    function saveState() { 
+        if (!isResetting) { 
+            history.push(JSON.stringify(canvas)); 
+            redoStack = []; 
+        } 
+    }
+
+    canvas.on('object:added', saveState); 
+    canvas.on('object:modified', saveState); 
+    canvas.on('path:created', saveState);
+
+    function undo() { 
+        if (history.length <= 1) return; 
+        isResetting = true; 
+        redoStack.push(history.pop()); 
+        canvas.loadFromJSON(history[history.length - 1], () => { 
+            canvas.renderAll(); 
+            isResetting = false; 
+        }); 
+    }
+
+    function redo() { 
+        if (!redoStack.length) return; 
+        isResetting = true; 
+        const state = redoStack.pop(); 
+        history.push(state); 
+        canvas.loadFromJSON(state, () => { 
+            canvas.renderAll(); 
+            isResetting = false; 
+        }); 
+    }
+
+    // --- GLOBAL KEYBOARD LISTENER ---
+    window.addEventListener('keydown', (e) => {
+        const obj = canvas.getActiveObject();
+        const isEditingText = obj && obj.isEditing;
+        // Check if user is typing in any input field (Graphing or Whiteboard)
+        const isTypingInInput = ['INPUT', 'TEXTAREA', 'SELECT'].includes(e.target.tagName);
+
+        // 1. Meta/Ctrl Shortcuts
+        if (e.ctrlKey || e.metaKey) {
+            switch (e.key.toLowerCase()) {
+                case 'z':
+                    e.preventDefault();
+                    undo();
+                    break;
+                case 'y':
+                    e.preventDefault();
+                    redo();
+                    break;
+                case 'b':
+                    if (isEditingText) { e.preventDefault(); formatText('fontWeight', 'bold'); }
+                    break;
+                case 'i':
+                    if (isEditingText) { e.preventDefault(); formatText('fontStyle', 'italic'); }
+                    break;
+                case 'u':
+                    if (isEditingText) { e.preventDefault(); formatText('underline', true); }
+                    break;
+                case '.': // Ctrl + . for Superscript
+                    if (isEditingText) { e.preventDefault(); formatText('super', true); }
+                    break;
+                case ',': // Ctrl + , for Subscript
+                    if (isEditingText) { e.preventDefault(); formatText('sub', true); }
+                    break;
+            }
+        }
+
+        // 2. Delete / Backspace Logic
+        // Only delete whiteboard objects if NOT typing in an input or editing text
+        if ((e.key === "Delete" || e.key === "Backspace") && obj && !isEditingText && !isTypingInInput) {
+            e.preventDefault();
+            canvas.remove(...canvas.getActiveObjects());
+            canvas.discardActiveObject().renderAll();
+        }
+    });
 
     function clearBoard() { if(confirm("Clear?")) { canvas.clear(); history = [JSON.stringify(canvas)]; applyBrush(); } }
     colorInp.oninput = applyBrush; sizeInp.oninput = applyBrush;
     container.onscroll = () => { if(container.scrollTop + container.clientHeight > canvas.getHeight() - 800) canvas.setHeight(canvas.getHeight() + 2000); };
     
+    // Initial state save
     history.push(JSON.stringify(canvas));
     applyBrush();
 </script>
