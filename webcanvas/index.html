@@ -188,7 +188,16 @@
 <script>
     const { jsPDF } = window.jspdf;
     const container = document.getElementById('canvas-container');
-    const canvas = new fabric.Canvas('c', { width: window.innerWidth, height: 4000, isDrawingMode: true, backgroundColor: null });
+    // Replace your current canvas line with this:
+    const canvas = new fabric.Canvas('c', { 
+        width: window.innerWidth, 
+        height: 4000, 
+        isDrawingMode: true, 
+        backgroundColor: null,
+        renderOnAddRemove: false, // Optimization
+        enableRetinaScaling: false, // Performance boost
+        stateful: false // Stops unnecessary background checks
+    });
 
     let currentMode = 'pen';
     const colorInp = document.getElementById('colorPicker');
